@@ -23,4 +23,4 @@ with gr.Blocks(title="AI PDF Summarizer") as demo:
             summarize, inputs=url_input, outputs=url_output
         )
 
-demo.launch(share=True)
+demo.launch()
