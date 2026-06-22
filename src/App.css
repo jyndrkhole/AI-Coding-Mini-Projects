@@ -1,0 +1,285 @@
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  text-align: left;
+}
+
+.hero-card,
+.status-card,
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.hero-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 32px;
+  background:
+    radial-gradient(circle at top left, var(--accent-bg), transparent 34%),
+    var(--surface);
+}
+
+.eyebrow,
+.status-label {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero-copy {
+  max-width: 660px;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.hero-actions,
+.panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hero-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.primary-button,
+.secondary-button {
+  padding: 12px 18px;
+}
+
+.primary-button {
+  background: var(--accent);
+  color: white;
+}
+
+.secondary-button {
+  border: 1px solid var(--border);
+  background: var(--button-bg);
+  color: var(--text-h);
+}
+
+.secondary-button.danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
+.status-card {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.status-card p {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.panel {
+  padding: 24px;
+}
+
+.panel-heading {
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.interval-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+.interval-control input {
+  width: 64px;
+  padding: 8px;
+  text-align: center;
+}
+
+.day-tabs {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.day-tabs button {
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  background: var(--button-bg);
+  color: var(--text);
+}
+
+.day-tabs button.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.subject-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text-h);
+  font-weight: 700;
+}
+
+input,
+textarea {
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--input-bg);
+  color: var(--text-h);
+  font: inherit;
+}
+
+textarea {
+  width: 100%;
+  min-height: 220px;
+  padding: 14px;
+  resize: vertical;
+}
+
+.subject-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subject-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: var(--input-bg);
+  color: var(--text-h);
+}
+
+.subject-list li.current {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.subject-list strong {
+  white-space: nowrap;
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.empty-state,
+.voice-help {
+  color: var(--text);
+}
+
+.voice-help {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
+
+.voice-help-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.voice-help h3 {
+  margin: 0;
+  color: var(--text-h);
+}
+
+.voice-test-button {
+  border: 1px solid var(--border);
+  background: var(--accent-bg);
+  color: var(--text-h);
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.voice-help p + p {
+  margin-top: 6px;
+}
+
+@media (max-width: 860px) {
+  .app-shell {
+    padding: 14px;
+  }
+
+  .hero-card,
+  .status-card,
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-card {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 24px;
+  }
+
+  .hero-actions {
+    justify-content: stretch;
+  }
+
+  .hero-actions button {
+    flex: 1;
+  }
+
+  .day-tabs {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .voice-help-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
