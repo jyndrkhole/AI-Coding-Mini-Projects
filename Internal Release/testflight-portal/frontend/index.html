@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentVizion2Go Release Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Release Portal</h1>
+          <p class="subtitle">AgentVizion2Go · separate iOS &amp; Android builds</p>
+        </div>
+      </div>
+      <div class="header-badges" id="badges"></div>
+    </header>
+
+    <main class="main">
+      <div class="platform-grid">
+        <!-- iOS -->
+        <section class="card platform-card" id="ios-card">
+          <div class="platform-header">
+            <span class="platform-emoji">🍎</span>
+            <div>
+              <h2>iOS · TestFlight</h2>
+              <p class="platform-desc">Increments build number, publishes &amp; uploads</p>
+            </div>
+          </div>
+
+          <div class="build-row">
+            <div class="build-display">
+              <span class="label">Current</span>
+              <span class="build-num" id="current-build">—</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="build-display next">
+              <span class="label">Next</span>
+              <span class="build-num" id="next-build">—</span>
+            </div>
+          </div>
+
+          <div class="steps" id="ios-steps">
+            <div class="step" data-step="increment"><div class="step-indicator"></div><span>Increment build</span></div>
+            <div class="step" data-step="publish_ios"><div class="step-indicator"></div><span>Build .ipa</span></div>
+            <div class="step" data-step="upload_ios"><div class="step-indicator"></div><span>Upload TestFlight</span></div>
+          </div>
+
+          <button class="btn-release btn-ios" id="btn-release-ios" type="button" data-platform="ios">
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            </span>
+            <span>Release to TestFlight</span>
+          </button>
+          <p class="hint" id="ios-hint">Increment → build → upload</p>
+        </section>
+
+        <!-- Android -->
+        <section class="card platform-card" id="android-card">
+          <div class="platform-header">
+            <span class="platform-emoji">🤖</span>
+            <div>
+              <h2>Android · Internal beta</h2>
+              <p class="platform-desc">Builds signed AAB only (no version bump)</p>
+            </div>
+          </div>
+
+          <div class="android-info">
+            <p>No build number change — runs <code>dotnet publish</code> with keystore signing.</p>
+          </div>
+
+          <div class="steps" id="android-steps">
+            <div class="step" data-step="publish_android"><div class="step-indicator"></div><span>Build signed .aab</span></div>
+          </div>
+
+          <button class="btn-release btn-android" id="btn-release-android" type="button" data-platform="android">
+            <span class="btn-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+            </span>
+            <span>Build Android AAB</span>
+          </button>
+          <p class="hint" id="android-hint">Signed AAB for internal beta testers</p>
+        </section>
+      </div>
+
+      <section class="grid-two">
+        <div class="card logs-card">
+          <div class="card-header">
+            <h2>Live output</h2>
+            <button class="btn-ghost" id="btn-clear-logs" type="button">Clear view</button>
+          </div>
+          <pre class="terminal" id="terminal"><span class="placeholder">Select a platform to start a build…</span></pre>
+        </div>
+
+        <div class="card ai-card">
+          <div class="card-header">
+            <h2>AI assistant</h2>
+            <span class="chip">Groq</span>
+          </div>
+          <p class="ai-desc">Analyzes build logs and explains iOS/Android errors.</p>
+          <div class="ai-output" id="ai-output">
+            <p class="placeholder">Run a build or ask a question after logs appear.</p>
+          </div>
+          <div class="ai-input-row">
+            <input type="text" id="ai-question" placeholder="Why did the build fail?" />
+            <button class="btn-secondary" id="btn-analyze" type="button">Analyze</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span id="project-path"></span>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
