@@ -1,4 +1,4 @@
-"""Release pipeline: iOS and Android run independently in parallel."""
+"""Release pipeline: separate iOS (increment + TestFlight) and Android (AAB only)."""
 
 from __future__ import annotations
 
@@ -13,9 +13,6 @@ from typing import Callable, Literal
 from config import settings
 
 Platform = Literal["ios", "android"]
-ReleaseTarget = Literal["ios", "android", "both"]
-
-_csproj_lock = asyncio.Lock()
 
 
 class StepStatus(str, Enum):
@@ -62,7 +59,7 @@ class ReleaseState:
                 {"id": s.id, "label": s.label, "status": s.status.value, "detail": s.detail}
                 for s in self.steps
             ],
-            "logs": self.logs[-200:],
+            "logs": self.logs[-500:],
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "current_build": self.current_build,
@@ -115,15 +112,21 @@ def build_steps(platform: Platform) -> list[PipelineStep]:
     return [PipelineStep(step_id, label) for step_id, label in STEP_DEFINITIONS[platform]]
 
 
-class PlatformPipeline:
-    def __init__(self, platform: Platform, emit_log: Callable[[Platform, str], None]) -> None:
-        self.platform = platform
-        self._emit_log = emit_log
-        self.state = ReleaseState(platform=platform)
+class ReleasePipeline:
+    def __init__(self) -> None:
+        self.state = ReleaseState()
         self._lock = asyncio.Lock()
+        self._log_callbacks: list[Callable[[str], None]] = []
 
-    def log(self, line: str) -> None:
-        self._emit_log(self.platform, line)
+    def subscribe_logs(self, callback: Callable[[str], None]) -> None:
+        self._log_callbacks.append(callback)
+
+    def _emit_log(self, line: str) -> None:
+        timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
+        entry = f"[{timestamp}] {line}"
+        self.state.logs.append(entry)
+        for cb in self._log_callbacks:
+            cb(entry)
 
     def _set_step(self, step_id: str, status: StepStatus, detail: str = "") -> None:
         for step in self.state.steps:
@@ -143,7 +146,7 @@ class PlatformPipeline:
         for secret in redact or []:
             if secret:
                 display = display.replace(secret, "****")
-        self.log(f"$ {display}")
+        self._emit_log(f"$ {display}")
 
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -160,39 +163,39 @@ class PlatformPipeline:
                 break
             line = chunk.decode("utf-8", errors="replace").rstrip()
             output_lines.append(line)
-            self.log(line)
+            self._emit_log(line)
 
         code = await proc.wait()
         return code, "\n".join(output_lines)
 
-    async def run(self) -> ReleaseState:
+    async def run(self, platform: Platform) -> ReleaseState:
         async with self._lock:
             if self.state.status == PipelineStatus.RUNNING:
-                raise RuntimeError(f"{self.platform} release is already in progress")
+                raise RuntimeError("A release is already in progress")
 
             self.state = ReleaseState(
-                platform=self.platform,
-                steps=build_steps(self.platform),
+                platform=platform,
+                steps=build_steps(platform),
                 status=PipelineStatus.RUNNING,
                 started_at=datetime.now(timezone.utc).isoformat(),
             )
 
             try:
-                if self.platform == "ios":
-                    self.log("=== iOS TestFlight release ===")
+                if platform == "ios":
+                    self._emit_log("=== iOS TestFlight release ===")
                     await self._step_increment()
                     await self._step_publish_ios()
                     await self._step_upload_ios()
                 else:
-                    self.log("=== Android AAB build ===")
+                    self._emit_log("=== Android AAB build ===")
                     await self._step_publish_android()
 
                 self.state.status = PipelineStatus.SUCCESS
-                self.log("Done.")
+                self._emit_log("Done.")
             except Exception as exc:
                 self.state.status = PipelineStatus.FAILED
                 self.state.error = str(exc)
-                self.log(f"ERROR: {exc}")
+                self._emit_log(f"ERROR: {exc}")
             finally:
                 self.state.finished_at = datetime.now(timezone.utc).isoformat()
 
@@ -205,12 +208,10 @@ class PlatformPipeline:
             self._set_step("increment", StepStatus.FAILED, "csproj not found")
             raise FileNotFoundError(f"Project file not found: {csproj}")
 
-        async with _csproj_lock:
-            old, new = await asyncio.to_thread(increment_build_number, csproj)
-
+        old, new = await asyncio.to_thread(increment_build_number, csproj)
         self.state.current_build = old
         self.state.new_build = new
-        self.log(f"iOS build number: {old} → {new}")
+        self._emit_log(f"iOS build number: {old} → {new}")
         self._set_step("increment", StepStatus.SUCCESS, f"{old} → {new}")
 
     async def _step_publish_ios(self) -> None:
@@ -329,61 +330,10 @@ class PlatformPipeline:
             StepStatus.SUCCESS,
             f"{aab.name} ({size_mb:.1f} MB)",
         )
-        self.log(f"Android AAB ready: {aab}")
+        self._emit_log(f"Android AAB ready: {aab}")
 
 
-class PipelineManager:
-    def __init__(self) -> None:
-        self._log_callbacks: list[Callable[[str], None]] = []
-        self.combined_logs: list[str] = []
-        self.ios = PlatformPipeline("ios", self._emit_log)
-        self.android = PlatformPipeline("android", self._emit_log)
-
-    def subscribe_logs(self, callback: Callable[[str], None]) -> None:
-        self._log_callbacks.append(callback)
-
-    def _emit_log(self, platform: Platform, line: str) -> None:
-        timestamp = datetime.now(timezone.utc).strftime("%H:%M:%S")
-        tag = "iOS" if platform == "ios" else "Android"
-        entry = f"[{timestamp}] [{tag}] {line}"
-        self.combined_logs.append(entry)
-        pipeline = self.ios if platform == "ios" else self.android
-        pipeline.state.logs.append(entry)
-        for cb in self._log_callbacks:
-            cb(entry)
-
-    def get(self, platform: Platform) -> PlatformPipeline:
-        return self.ios if platform == "ios" else self.android
-
-    def is_running(self, platform: Platform) -> bool:
-        return self.get(platform).state.status == PipelineStatus.RUNNING
-
-    async def start(self, target: ReleaseTarget) -> list[Platform]:
-        started: list[Platform] = []
-
-        if target in ("ios", "both"):
-            if self.is_running("ios"):
-                raise RuntimeError("iOS release is already in progress")
-            asyncio.create_task(self.ios.run())
-            started.append("ios")
-
-        if target in ("android", "both"):
-            if self.is_running("android"):
-                raise RuntimeError("Android release is already in progress")
-            asyncio.create_task(self.android.run())
-            started.append("android")
-
-        return started
-
-    def status(self) -> dict:
-        return {
-            "ios": self.ios.state.to_dict(),
-            "android": self.android.state.to_dict(),
-            "logs": self.combined_logs[-500:],
-        }
-
-
-pipeline = PipelineManager()
+pipeline = ReleasePipeline()
 
 
 async def get_current_build_preview() -> dict:
