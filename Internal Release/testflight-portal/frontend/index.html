@@ -22,7 +22,7 @@
         </div>
         <div>
           <h1>Release Portal</h1>
-          <p class="subtitle">AgentVizion2Go · separate iOS &amp; Android builds</p>
+          <p class="subtitle">AgentVizion2Go · iOS &amp; Android builds in parallel</p>
         </div>
       </div>
       <div class="header-badges" id="badges"></div>
@@ -33,7 +33,7 @@
         <!-- iOS -->
         <section class="card platform-card" id="ios-card">
           <div class="platform-header">
-            <span class="platform-emoji">🍎</span>
+            <span class="platform-emoji"></span>
             <div>
               <h2>iOS · TestFlight</h2>
               <p class="platform-desc">Increments build number, publishes &amp; uploads</p>
@@ -97,6 +97,18 @@
           </button>
           <p class="hint" id="android-hint">Signed AAB for internal beta testers</p>
         </section>
+      </div>
+
+      <div class="release-both-row">
+        <button class="btn-release btn-both" id="btn-release-both" type="button">
+          <span class="btn-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </span>
+          <span>Release Both in Parallel</span>
+        </button>
+        <p class="hint hint-both">Starts iOS (increment + TestFlight) and Android (AAB) at the same time</p>
       </div>
 
       <section class="grid-two">

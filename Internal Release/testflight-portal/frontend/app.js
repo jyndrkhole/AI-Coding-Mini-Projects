@@ -1,10 +1,10 @@
 const API = "";
 
 const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
 const terminal = $("#terminal");
 const btnReleaseIos = $("#btn-release-ios");
 const btnReleaseAndroid = $("#btn-release-android");
+const btnReleaseBoth = $("#btn-release-both");
 const btnAnalyze = $("#btn-analyze");
 const btnClearLogs = $("#btn-clear-logs");
 const aiOutput = $("#ai-output");
@@ -16,7 +16,6 @@ const ANDROID_STEPS = ["publish_android"];
 let ws = null;
 let logBuffer = [];
 let terminalCleared = false;
-let activePlatform = null;
 
 function connectWebSocket() {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -46,6 +45,10 @@ function appendLog(line) {
   span.textContent = line + "\n";
   if (/ERROR|error|failed|FAILED/i.test(line)) {
     span.className = "line-error";
+  } else if (/\[iOS\]/i.test(line)) {
+    span.className = "line-ios";
+  } else if (/\[Android\]/i.test(line)) {
+    span.className = "line-android";
   }
   terminal.appendChild(span);
   terminal.scrollTop = terminal.scrollHeight;
@@ -71,23 +74,45 @@ function updateSteps(steps, platform) {
   }
 }
 
-function setButtonsRunning(running, platform) {
-  btnReleaseIos.disabled = running;
-  btnReleaseAndroid.disabled = running;
-  btnReleaseIos.classList.toggle("running", running && platform === "ios");
-  btnReleaseAndroid.classList.toggle("running", running && platform === "android");
+function updatePlatformUi(platform, data) {
+  const running = data.status === "running";
+  const btn = platform === "ios" ? btnReleaseIos : btnReleaseAndroid;
+  const hint = platform === "ios" ? $("#ios-hint") : $("#android-hint");
+  const label = platform === "ios"
+    ? (running ? "Releasing…" : "Release to TestFlight")
+    : (running ? "Building…" : "Build Android AAB");
 
-  if (running && platform === "ios") {
-    btnReleaseIos.querySelector("span:last-child").textContent = "Releasing…";
-  } else {
-    btnReleaseIos.querySelector("span:last-child").textContent = "Release to TestFlight";
-  }
+  btn.disabled = running;
+  btn.classList.toggle("running", running);
+  btn.querySelector("span:last-child").textContent = label;
 
-  if (running && platform === "android") {
-    btnReleaseAndroid.querySelector("span:last-child").textContent = "Building…";
-  } else {
-    btnReleaseAndroid.querySelector("span:last-child").textContent = "Build Android AAB";
+  updateSteps(data.steps, platform);
+
+  if (data.status === "failed") {
+    hint.textContent = `Failed: ${data.error}`;
+    hint.style.color = "var(--error)";
+  } else if (data.status === "success") {
+    if (platform === "ios") {
+      hint.textContent = `Build ${data.new_build} uploaded to TestFlight.`;
+    } else {
+      const name = data.aab_path ? data.aab_path.split("/").pop() : "AAB";
+      hint.textContent = `${name} ready for internal beta.`;
+    }
+    hint.style.color = "var(--success)";
+  } else if (data.status === "idle") {
+    hint.textContent = platform === "ios"
+      ? "Increment → build → upload"
+      : "Signed AAB for internal beta testers";
+    hint.style.color = "var(--text-muted)";
   }
+}
+
+function setBothButton(running) {
+  btnReleaseBoth.disabled = running;
+  btnReleaseBoth.classList.toggle("running", running);
+  btnReleaseBoth.querySelector("span:last-child").textContent = running
+    ? "Both builds running…"
+    : "Release Both in Parallel";
 }
 
 async function fetchPreview() {
@@ -129,52 +154,37 @@ async function pollStatus() {
   try {
     const res = await fetch(`${API}/api/status`);
     const data = await res.json();
-    const running = data.status === "running";
 
-    if (data.platform) {
-      activePlatform = data.platform;
-      updateSteps(data.steps, data.platform);
-    }
+    updatePlatformUi("ios", data.ios);
+    updatePlatformUi("android", data.android);
 
-    setButtonsRunning(running, data.platform);
+    const anyRunning =
+      data.ios.status === "running" || data.android.status === "running";
+    setBothButton(anyRunning);
 
-    if (data.status === "success" || data.status === "failed") {
-      if (data.platform === "ios") {
-        const hint = $("#ios-hint");
-        if (data.status === "failed") {
-          hint.textContent = `Failed: ${data.error}`;
-          hint.style.color = "var(--error)";
-        } else {
-          hint.textContent = `Build ${data.new_build} uploaded to TestFlight.`;
-          hint.style.color = "var(--success)";
-        }
-      } else if (data.platform === "android") {
-        const hint = $("#android-hint");
-        if (data.status === "failed") {
-          hint.textContent = `Failed: ${data.error}`;
-          hint.style.color = "var(--error)";
-        } else {
-          const name = data.aab_path ? data.aab_path.split("/").pop() : "AAB";
-          hint.textContent = `${name} ready for internal beta.`;
-          hint.style.color = "var(--success)";
-        }
-      }
-
-      if (data.platform === "ios") await fetchPreview();
-      activePlatform = null;
-    }
+    if (data.ios.status === "success") await fetchPreview();
   } catch {
     /* server may be starting */
   }
 }
 
 async function startRelease(platform) {
-  const hintEl = platform === "ios" ? $("#ios-hint") : $("#android-hint");
-  hintEl.textContent = platform === "ios" ? "Release in progress…" : "Build in progress…";
-  hintEl.style.color = "var(--text-muted)";
-
-  resetSteps(platform === "ios" ? "ios-steps" : "android-steps",
-    platform === "ios" ? IOS_STEPS : ANDROID_STEPS);
+  if (platform === "ios") {
+    $("#ios-hint").textContent = "Release in progress…";
+    $("#ios-hint").style.color = "var(--text-muted)";
+    resetSteps("ios-steps", IOS_STEPS);
+  } else if (platform === "android") {
+    $("#android-hint").textContent = "Build in progress…";
+    $("#android-hint").style.color = "var(--text-muted)";
+    resetSteps("android-steps", ANDROID_STEPS);
+  } else {
+    $("#ios-hint").textContent = "Release in progress…";
+    $("#android-hint").textContent = "Build in progress…";
+    $("#ios-hint").style.color = "var(--text-muted)";
+    $("#android-hint").style.color = "var(--text-muted)";
+    resetSteps("ios-steps", IOS_STEPS);
+    resetSteps("android-steps", ANDROID_STEPS);
+  }
 
   try {
     const res = await fetch(`${API}/api/release`, {
@@ -187,9 +197,8 @@ async function startRelease(platform) {
       alert(err.detail || "Could not start release");
       return;
     }
-    activePlatform = platform;
-    setButtonsRunning(true, platform);
     logBuffer = [];
+    pollStatus();
   } catch {
     alert("Could not reach server. Is it running?");
   }
@@ -197,6 +206,7 @@ async function startRelease(platform) {
 
 btnReleaseIos.addEventListener("click", () => startRelease("ios"));
 btnReleaseAndroid.addEventListener("click", () => startRelease("android"));
+btnReleaseBoth.addEventListener("click", () => startRelease("both"));
 
 btnClearLogs.addEventListener("click", () => {
   terminal.innerHTML = '<span class="placeholder">Logs cleared (server buffer retained).</span>';
