@@ -1,0 +1,2 @@
+# One URL per line — fetched and indexed when you click "Index folder"
+https://scaler-content.github.io/class-3-AI-engg/
