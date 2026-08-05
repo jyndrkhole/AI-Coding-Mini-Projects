@@ -1,0 +1,10 @@
+{
+  "id": 42,
+  "email": "member@example.com",
+  "role": "member",
+  "profile": {
+    "displayName": "Member One",
+    "age": 30
+  },
+  "tags": ["beta"]
+}

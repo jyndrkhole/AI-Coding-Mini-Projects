@@ -1,0 +1,9 @@
+{
+  "id": "not-a-uuid",
+  "name": "",
+  "status": "adopted",
+  "extraField": true,
+  "owner": {
+    "email": "not-an-email"
+  }
+}

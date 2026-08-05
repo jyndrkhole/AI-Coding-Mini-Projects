@@ -1,0 +1,9 @@
+{
+  "id": "42",
+  "email": "bad-email",
+  "role": "superadmin",
+  "profile": {
+    "age": -1
+  },
+  "unknown": true
+}
