@@ -16,9 +16,15 @@ from pathlib import Path
 from statistics import mean
 
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import APIError, BadRequestError, OpenAI
 
-from tools import TOOL_DEFINITIONS, run_tool, score_relevance
+from tools import (
+    TOOL_DEFINITIONS,
+    check_star_structure,
+    detect_filler_words,
+    run_tool,
+    score_relevance,
+)
 from interview_bank import QUESTIONS
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
@@ -46,6 +52,10 @@ After the tools return, write short, encouraging feedback (about 4–8 sentences
 
 Do not invent scores — only use numbers the tools returned.
 Do not mix this question up with a previous one.
+
+When calling a tool, keep arguments tiny, valid JSON. Pass "answer" as
+the short string "from_user_message" — never paste the candidate's full
+answer into tool arguments (the runtime already has it).
 """
 
 META_SYSTEM_PROMPT = """You are InterviewIQ answering a question about the candidate's
@@ -159,32 +169,50 @@ class InterviewAgent:
         tool_results: dict[str, dict] = {}
         feedback = ""
 
-        for _ in range(MAX_TOOL_ROUNDS):
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                tools=TOOL_DEFINITIONS,
-                tool_choice="auto",
-                temperature=0.3,
+        # Long pasted answers often make the model emit invalid tool JSON
+        # (Groq then returns 400 tool_use_failed). Score those locally.
+        use_local_tools = len(answer) > 1500
+        if not use_local_tools:
+            try:
+                for _ in range(MAX_TOOL_ROUNDS):
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        tools=TOOL_DEFINITIONS,
+                        tool_choice="auto",
+                        temperature=0.3,
+                    )
+                    message = response.choices[0].message
+                    messages.append(_message_to_dict(message))
+
+                    if not message.tool_calls:
+                        feedback = (message.content or "").strip()
+                        break
+
+                    for call in message.tool_calls:
+                        result = self._run_named_tool(
+                            call.function.name, call.function.arguments
+                        )
+                        tool_results[call.function.name] = result
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": call.id,
+                                "name": call.function.name,
+                                "content": json.dumps(result),
+                            }
+                        )
+            except (BadRequestError, APIError):
+                use_local_tools = True
+                tool_results = {}
+                feedback = ""
+
+        if use_local_tools or "score_relevance" not in tool_results:
+            tool_results.update(
+                self._run_required_tools(answer, keywords, category)
             )
-            message = response.choices[0].message
-            messages.append(_message_to_dict(message))
-
-            if not message.tool_calls:
-                feedback = (message.content or "").strip()
-                break
-
-            for call in message.tool_calls:
-                result = self._run_named_tool(call.function.name, call.function.arguments)
-                tool_results[call.function.name] = result
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": call.id,
-                        "name": call.function.name,
-                        "content": json.dumps(result),
-                    }
-                )
+        if use_local_tools and not feedback:
+            feedback = self._write_feedback(question, category, tool_results)
 
         # Guarantee we always have a relevance number in memory, even if the
         # model skipped the tool — otherwise weakest-area aggregation breaks.
@@ -227,13 +255,16 @@ class InterviewAgent:
                 ),
             },
         ]
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=0.2,
-            max_tokens=400,
-        )
-        reply = (response.choices[0].message.content or "").strip()
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.2,
+                max_tokens=400,
+            )
+            reply = (response.choices[0].message.content or "").strip()
+        except (BadRequestError, APIError, OSError):
+            return summary
         # If the model wanders, still surface the weakest-area fact.
         weakest = self._weakest_turn()
         if weakest and weakest["question"].lower() not in reply.lower():
@@ -396,7 +427,69 @@ class InterviewAgent:
         arguments.setdefault("answer", self._current_answer)
         if name == "score_relevance" and not arguments.get("expected_keywords"):
             arguments["expected_keywords"] = self._current_keywords
+        # Model sometimes dumps the whole essay into arguments; always use ours.
+        if arguments.get("answer") in {"", "from_user_message"} or (
+            isinstance(arguments.get("answer"), str)
+            and len(arguments.get("answer", "")) > len(self._current_answer)
+        ):
+            arguments["answer"] = self._current_answer
         return run_tool(name, arguments)
+
+    def _run_required_tools(
+        self,
+        answer: str,
+        keywords: list[str],
+        category: str | None,
+    ) -> dict:
+        """Run the rule-based tools without asking the model to emit JSON."""
+        results = {
+            "detect_filler_words": detect_filler_words(answer),
+            "score_relevance": score_relevance(answer, keywords),
+        }
+        cat = (category or "").strip().lower()
+        if cat in {"", "behavioral", "unspecified"}:
+            results["check_star_structure"] = check_star_structure(answer)
+        return results
+
+    def _write_feedback(
+        self,
+        question: str,
+        category: str | None,
+        tool_results: dict,
+    ) -> str:
+        """Ask the model for coach copy from tool JSON — no tool calling."""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Write short encouraging interview feedback (4–8 sentences). "
+                            "Quote the question in the first line. Use only the tool "
+                            "results below — do not invent scores."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            {
+                                "question": question,
+                                "category": category,
+                                "tool_results": tool_results,
+                            }
+                        ),
+                    },
+                ],
+                temperature=0.3,
+                max_tokens=500,
+            )
+            text = (response.choices[0].message.content or "").strip()
+            if text:
+                return text
+        except (BadRequestError, APIError, OSError):
+            pass
+        return self._fallback_feedback(tool_results)
 
     def _weakest_turn(self) -> dict | None:
         if not self.history:

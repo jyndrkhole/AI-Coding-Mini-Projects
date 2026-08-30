@@ -65,6 +65,10 @@ RESTORE_THEME_JS = """
 }
 """
 
+QUESTION_CHOICES = [
+    f"Q{i} — {item['question']}" for i, item in enumerate(QUESTIONS, start=1)
+]
+
 _agent: InterviewAgent | None = None
 
 
@@ -82,6 +86,22 @@ def current_question_text(index: int) -> str:
         f"Question {n} of {len(QUESTIONS)}  ·  {item['category']}\n\n"
         f"{item['question']}"
     )
+
+
+def _nav_buttons(index: int):
+    last = len(QUESTIONS) - 1
+    return (
+        gr.update(interactive=index > 0),
+        gr.update(interactive=index < last),
+    )
+
+
+def _last_answer_for(index: int) -> str:
+    item = QUESTIONS[index % len(QUESTIONS)]
+    for turn in reversed(get_agent().history):
+        if turn.get("question_id") == item["id"] or turn.get("question") == item["question"]:
+            return turn.get("answer") or ""
+    return ""
 
 
 def _labeled_feedback(item: dict, index: int, feedback: str) -> str:
@@ -104,18 +124,33 @@ def submit_answer(answer: str, index: int):
             index,
             current_question_text(index),
             "",
-            gr.update(interactive=False),
+            QUESTION_CHOICES[index % len(QUESTIONS)],
+            *_nav_buttons(index),
         )
 
     n = (index % len(QUESTIONS)) + 1
-    feedback = agent.evaluate_answer(
-        question=item["question"],
-        answer=answer.strip(),
-        expected_keywords=item["keywords"],
-        category=item["category"],
-        question_number=n,
-        question_id=item["id"],
-    )
+    try:
+        feedback = agent.evaluate_answer(
+            question=item["question"],
+            answer=answer.strip(),
+            expected_keywords=item["keywords"],
+            category=item["category"],
+            question_number=n,
+            question_id=item["id"],
+        )
+    except Exception:
+        return (
+            "Could not score that answer — the model sent an invalid tool call. "
+            "The tools can still run if you submit again; if it keeps failing, "
+            "try a slightly shorter answer.",
+            agent.scorecard_markdown(),
+            agent.previous_answers_text(),
+            index,
+            current_question_text(index),
+            answer.strip(),
+            QUESTION_CHOICES[index % len(QUESTIONS)],
+            *_nav_buttons(index),
+        )
     # Stay on this question so feedback is not shown against the next prompt.
     return (
         _labeled_feedback(item, index, feedback),
@@ -124,31 +159,47 @@ def submit_answer(answer: str, index: int):
         index,
         current_question_text(index),
         answer.strip(),
-        gr.update(interactive=True),
+        QUESTION_CHOICES[index % len(QUESTIONS)],
+        *_nav_buttons(index),
     )
+
+
+def go_to_question(index: int):
+    """Move to a bank question. Session history is left intact."""
+    index = max(0, min(int(index), len(QUESTIONS) - 1))
+    last = _last_answer_for(index)
+    note = ""
+    if last:
+        note = (
+            "This question is already in your session. "
+            "Edit and submit again to add another attempt (e.g. Q1.2). "
+            "Earlier scores stay on the scorecard."
+        )
+    return (
+        current_question_text(index),
+        last,
+        index,
+        note,
+        QUESTION_CHOICES[index],
+        *_nav_buttons(index),
+    )
+
+
+def previous_question(index: int):
+    return go_to_question(index - 1)
 
 
 def next_question(index: int):
-    nxt = index + 1
-    if nxt >= len(QUESTIONS):
-        return (
-            (
-                "You've finished every question in the bank. "
-                "Ask the coach a meta-question or pull the final report. "
-                "Use Restart session to practice again."
-            ),
-            "",
-            index,
-            "",
-            gr.update(interactive=False),
-        )
-    return (
-        current_question_text(nxt),
-        "",
-        nxt,
-        "",
-        gr.update(interactive=False),
-    )
+    return go_to_question(index + 1)
+
+
+def jump_question(choice: str):
+    if not choice:
+        return go_to_question(0)
+    # "Q3 — Describe a time..."
+    token = choice.split("—", 1)[0].strip()  # Q3
+    n = int(token[1:])
+    return go_to_question(n - 1)
 
 
 def ask_coach(meta_question: str):
@@ -173,7 +224,8 @@ def restart():
         "",
         "",
         "",
-        gr.update(interactive=False),
+        QUESTION_CHOICES[0],
+        *_nav_buttons(0),
     )
 
 
@@ -207,8 +259,17 @@ how you're doing at any point — the coach remembers the whole session.
             lines=8,
         )
         with gr.Row():
+            jump_dd = gr.Dropdown(
+                choices=QUESTION_CHOICES,
+                value=QUESTION_CHOICES[0],
+                label="Jump to any question (session scores are kept)",
+                scale=4,
+            )
+            jump_btn = gr.Button("Go to question", scale=1)
+        with gr.Row():
+            prev_btn = gr.Button("Previous question", interactive=False)
             submit_btn = gr.Button("Submit answer", variant="primary")
-            next_btn = gr.Button("Next question", interactive=False)
+            next_btn = gr.Button("Next question")
 
         feedback_box = gr.Textbox(
             label="Coach feedback",
@@ -243,6 +304,15 @@ how you're doing at any point — the coach remembers the whole session.
             restart_btn = gr.Button("Restart session")
         report_box = gr.Textbox(label="Final report", lines=14, interactive=False)
 
+        nav_outputs = [
+            question_box,
+            answer_box,
+            q_index,
+            feedback_box,
+            jump_dd,
+            prev_btn,
+            next_btn,
+        ]
         submit_btn.click(
             submit_answer,
             inputs=[answer_box, q_index],
@@ -253,14 +323,14 @@ how you're doing at any point — the coach remembers the whole session.
                 q_index,
                 question_box,
                 answer_box,
+                jump_dd,
+                prev_btn,
                 next_btn,
             ],
         )
-        next_btn.click(
-            next_question,
-            inputs=[q_index],
-            outputs=[question_box, answer_box, q_index, feedback_box, next_btn],
-        )
+        prev_btn.click(previous_question, inputs=[q_index], outputs=nav_outputs)
+        next_btn.click(next_question, inputs=[q_index], outputs=nav_outputs)
+        jump_btn.click(jump_question, inputs=[jump_dd], outputs=nav_outputs)
         meta_btn.click(ask_coach, inputs=[meta_box], outputs=[meta_reply])
         report_btn.click(pull_report, outputs=[report_box])
         restart_btn.click(
@@ -274,6 +344,8 @@ how you're doing at any point — the coach remembers the whole session.
                 answer_box,
                 meta_reply,
                 report_box,
+                jump_dd,
+                prev_btn,
                 next_btn,
             ],
         )
