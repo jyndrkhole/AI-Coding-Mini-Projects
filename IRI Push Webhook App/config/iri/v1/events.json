@@ -1,0 +1,712 @@
+{
+  "specification": "IRI Application Status Push Notifications",
+  "version": "v1",
+  "specificationVersion": "1.1.0",
+  "source": "IRI",
+  "sourceFile": "appstatuspushNotifications_1.1.0.yaml",
+  "events": [
+    {
+      "eventType": "applicationStatus.v1.applicationReceived",
+      "displayName": "Initial Application Received Notification",
+      "description": "Webhook fired when a new application is received and a policy number is assigned",
+      "enabled": true,
+      "webhookName": "applicationReceived",
+      "schemaName": "ApplicationReceivedNotification",
+      "tag": "Application Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.cusip"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.isActionNeeded",
+        "notification.actionSections",
+        "notification.productName",
+        "notification.isQualified",
+        "notification.producers",
+        "notification.parties",
+        "notification.signedDate",
+        "notification.receivedDate",
+        "notification.rateEffectiveDate",
+        "notification.fundsHeldUntilDate"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440001",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "received",
+        "eventType": "applicationStatus.v1.applicationReceived",
+        "notification": {
+          "cusip": "401B23458",
+          "isActionNeeded": false,
+          "productName": "Secure Income Annuity Plus",
+          "isQualified": true,
+          "producers": [
+            {
+              "type": "individual",
+              "firstName": "Jane",
+              "lastName": "Smith",
+              "npn": "1234567890",
+              "relationships": ["primaryAgent"],
+              "commissionSplitPercent": 100
+            },
+            {
+              "type": "entity",
+              "name": "Smith & Associates",
+              "npn": "1234567890",
+              "relationships": ["brokerDealer"],
+              "commissionSplitPercent": 100
+            }
+          ],
+          "parties": [
+            {
+              "type": "individual",
+              "firstName": "John",
+              "lastName": "Doe",
+              "relationships": ["owner", "annuitant"]
+            },
+            {
+              "type": "entity",
+              "name": "Smith & Associates",
+              "npn": "1234567890",
+              "relationships": ["primaryBeneficiary"]
+            }
+          ],
+          "signedDate": "2026-06-01",
+          "receivedDate": "2026-06-02",
+          "rateEffectiveDate": "2026-06-02"
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.canSellActionNeeded",
+      "displayName": "Can Sell Action Needed Notification",
+      "description": "Webhook fired when can-sell action is needed",
+      "enabled": true,
+      "webhookName": "canSellActionNeeded",
+      "schemaName": "CanSellNotification",
+      "tag": "Validation Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.status",
+        "notification.isActionNeeded"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.startDate",
+        "notification.endDate",
+        "notification.note",
+        "notification.issues"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440002",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "inProgress",
+        "eventType": "applicationStatus.v1.canSellActionNeeded",
+        "notification": {
+          "status": "inProgress",
+          "isActionNeeded": true,
+          "startDate": "2026-06-03",
+          "issues": [
+            {
+              "type": "trainingExpired",
+              "note": "Producer training expired on 2026-05-01",
+              "affectedProducer": {
+                "npn": "1234567890"
+              }
+            },
+            {
+              "type": "other",
+              "note": "Other reason for can-sell action needed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.suitabilityActionNeeded",
+      "displayName": "Suitability Action Needed Notification",
+      "description": "Webhook fired when suitability review requires action",
+      "enabled": true,
+      "webhookName": "suitabilityActionNeeded",
+      "schemaName": "SuitabilityActionNotification",
+      "tag": "Suitability Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.status",
+        "notification.isActionNeeded"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.startDate",
+        "notification.endDate",
+        "notification.reason",
+        "notification.note",
+        "notification.dueDate",
+        "notification.isApproved",
+        "notification.actionSections"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440003",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "inProgress",
+        "eventType": "applicationStatus.v1.suitabilityActionNeeded",
+        "notification": {
+          "status": "inProgress",
+          "isActionNeeded": true,
+          "startDate": "2026-06-04",
+          "dueDate": "2026-06-11",
+          "reason": "moreInformationNeeded",
+          "note": "Client financial profile documentation required",
+          "actionSections": ["suitability"]
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.suitabilityApproved",
+      "displayName": "Suitability Approved Notification",
+      "description": "Webhook fired when suitability is approved",
+      "enabled": true,
+      "webhookName": "suitabilityApproved",
+      "schemaName": "SuitabilityDecisionNotification",
+      "tag": "Suitability Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.status",
+        "notification.endDate",
+        "notification.isApproved"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.isActionNeeded",
+        "notification.actionSections",
+        "notification.startDate",
+        "notification.note"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440004",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "inProgress",
+        "eventType": "applicationStatus.v1.suitabilityApproved",
+        "notification": {
+          "status": "completed",
+          "isActionNeeded": false,
+          "startDate": "2026-06-04",
+          "endDate": "2026-06-15",
+          "isApproved": true,
+          "note": "Suitability review completed successfully"
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.documentReviewActionNeeded",
+      "displayName": "Document Review Action Needed Notification",
+      "description": "Webhook fired when document review requires action",
+      "enabled": true,
+      "webhookName": "documentReviewActionNeeded",
+      "schemaName": "DocReviewNotification",
+      "tag": "Document Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.status",
+        "notification.isActionNeeded"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.startDate",
+        "notification.endDate",
+        "notification.note",
+        "notification.issues",
+        "notification.actionSections"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440005",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "inProgress",
+        "eventType": "applicationStatus.v1.documentReviewActionNeeded",
+        "notification": {
+          "status": "inProgress",
+          "isActionNeeded": true,
+          "startDate": "2026-06-05",
+          "actionSections": ["documentReview"],
+          "issues": [
+            {
+              "reason": "missingSignature",
+              "formName": "Application for Annuity",
+              "formNumber": "APP-1001",
+              "dueDate": "2026-06-12",
+              "note": "Owner signature required on page 3"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.fundingActionNeeded",
+      "displayName": "Funding Action Needed Notification",
+      "description": "Webhook fired when funding action is needed",
+      "enabled": true,
+      "webhookName": "fundingActionNeeded",
+      "schemaName": "FundingActionNotification",
+      "tag": "Funding Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.isActionNeeded",
+        "notification.status"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.actionSections",
+        "notification.startDate",
+        "notification.note",
+        "notification.sources",
+        "notification.reason"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440006",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "inProgress",
+        "eventType": "applicationStatus.v1.fundingActionNeeded",
+        "notification": {
+          "isActionNeeded": true,
+          "status": "inProgress",
+          "startDate": "2026-06-06",
+          "actionSections": ["funding"],
+          "reason": "awaitingFundsFromCedingCompany",
+          "sources": [
+            {
+              "method": "anotherPolicy",
+              "type": "full1035Exchange",
+              "isActionNeeded": true,
+              "anticipatedAmount": 250000.0,
+              "status": "inProgress",
+              "cedingCompanyName": "Legacy Life Insurance Co",
+              "accountNumber": "POL-123456789"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.fundingTransferRequestSent",
+      "displayName": "Funding Transfer Request Sent Notification",
+      "description": "Webhook fired when a funding transfer request is sent",
+      "enabled": true,
+      "webhookName": "fundingTransferRequestSent",
+      "schemaName": "TransferRequestNotification",
+      "tag": "Transfer Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.isActionNeeded",
+        "notification.status"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.actionSections",
+        "notification.startDate",
+        "notification.note",
+        "notification.sources",
+        "notification.nextActivityDate",
+        "notification.methodOfInitiation",
+        "notification.referenceNumber"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440007",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "inProgress",
+        "eventType": "applicationStatus.v1.fundingTransferRequestSent",
+        "notification": {
+          "isActionNeeded": false,
+          "status": "inProgress",
+          "startDate": "2026-06-07",
+          "nextActivityDate": "2026-06-21",
+          "methodOfInitiation": "fax",
+          "referenceNumber": "TRF-2026-004567",
+          "note": "1035 exchange transfer request faxed to ceding carrier",
+          "sources": [
+            {
+              "method": "anotherPolicy",
+              "type": "full1035Exchange",
+              "anticipatedAmount": 250000.0,
+              "status": "inProgress",
+              "cedingCompanyName": "Legacy Life Insurance Co",
+              "accountNumber": "POL-123456789"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.fundingSourceTypeUpdated",
+      "displayName": "Funding Source Type Updated Notification",
+      "description": "Webhook fired when funding source type is determined",
+      "enabled": true,
+      "webhookName": "fundingSourceTypeUpdated",
+      "schemaName": "SourceTypeNotification",
+      "tag": "Funding Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.isActionNeeded",
+        "notification.status"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.actionSections",
+        "notification.startDate",
+        "notification.note",
+        "notification.sources"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440008",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "inProgress",
+        "eventType": "applicationStatus.v1.fundingSourceTypeUpdated",
+        "notification": {
+          "isActionNeeded": false,
+          "status": "inProgress",
+          "startDate": "2026-06-08",
+          "sources": [
+            {
+              "method": "anotherPolicy",
+              "type": "directRollover",
+              "anticipatedAmount": 150000.0,
+              "status": "inProgress",
+              "cedingCompanyName": "Prior Carrier Inc",
+              "accountNumber": "IRA-987654321"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.fundingTransferFollowedUp",
+      "displayName": "New Funding Follow-Up Notification",
+      "description": "Webhook fired when a new follow-up action is created",
+      "enabled": true,
+      "webhookName": "fundingTransferFollowedUp",
+      "schemaName": "NewFollowUpNotification",
+      "tag": "Follow-Up Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.isActionNeeded",
+        "notification.status"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.actionSections",
+        "notification.startDate",
+        "notification.note",
+        "notification.sources",
+        "notification.nextActivityDate",
+        "notification.transferSentDate"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440009",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "inProgress",
+        "eventType": "applicationStatus.v1.fundingTransferFollowedUp",
+        "notification": {
+          "isActionNeeded": true,
+          "status": "inProgress",
+          "startDate": "2026-06-09",
+          "nextActivityDate": "2026-06-16",
+          "transferSentDate": "2026-06-07",
+          "note": "Follow-up call scheduled with ceding carrier",
+          "sources": [
+            {
+              "method": "anotherPolicy",
+              "type": "full1035Exchange",
+              "anticipatedAmount": 250000.0,
+              "status": "inProgress",
+              "cedingCompanyName": "Legacy Life Insurance Co",
+              "accountNumber": "POL-123456789"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.fundingReceived",
+      "displayName": "Funding Received Notification",
+      "description": "Webhook fired when funding is received",
+      "enabled": true,
+      "webhookName": "fundingReceived",
+      "schemaName": "FundingReceivedNotification",
+      "tag": "Funding Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification",
+        "notification.isActionNeeded",
+        "notification.status"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.actionSections",
+        "notification.startDate",
+        "notification.note",
+        "notification.sources",
+        "notification.anticipatedAmount",
+        "notification.receivedAmount",
+        "notification.receivedDate",
+        "notification.effectiveDate"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440010",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "inProgress",
+        "eventType": "applicationStatus.v1.fundingReceived",
+        "notification": {
+          "isActionNeeded": false,
+          "status": "completed",
+          "startDate": "2026-06-06",
+          "anticipatedAmount": 250000.0,
+          "receivedAmount": 240000.0,
+          "receivedDate": "2026-06-15",
+          "effectiveDate": "2026-06-15",
+          "sources": [
+            {
+              "method": "anotherPolicy",
+              "type": "full1035Exchange",
+              "anticipatedAmount": 250000.0,
+              "status": "complete",
+              "cedingCompanyName": "Legacy Life Insurance Co",
+              "accountNumber": "POL-123456789"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.applicationCompleted",
+      "displayName": "Application Completed Notification",
+      "description": "Webhook fired when an application is completed",
+      "enabled": true,
+      "webhookName": "applicationCompleted",
+      "schemaName": "ApplicationCompletedNotification",
+      "tag": "Application Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.isActionNeeded",
+        "notification.actionSections",
+        "notification.startDate",
+        "notification.note",
+        "notification.delivery"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440011",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "completed",
+        "eventType": "applicationStatus.v1.applicationCompleted",
+        "notification": {
+          "isActionNeeded": false,
+          "startDate": "2026-06-02",
+          "note": "Policy issued and delivered to owner",
+          "delivery": {
+            "sentDate": "2026-06-20",
+            "method": "fedex",
+            "trackingNumber": "7946 1234 5678"
+          }
+        }
+      }
+    },
+    {
+      "eventType": "applicationStatus.v1.applicationCancelled",
+      "displayName": "Application Cancelled Notification",
+      "description": "Webhook fired when an application is cancelled",
+      "enabled": true,
+      "webhookName": "applicationCancelled",
+      "schemaName": "ApplicationCancelledNotification",
+      "tag": "Application Notifications",
+      "requiredFields": [
+        "eventId",
+        "policyNumber",
+        "applicationOrigin",
+        "applicationOrigin.isElectronic",
+        "status",
+        "eventType",
+        "notification"
+      ],
+      "optionalFields": [
+        "id",
+        "applicationOrigin.platform",
+        "applicationOrigin.id",
+        "notification.actionSections",
+        "notification.initiator",
+        "notification.cancelledDate",
+        "notification.reason"
+      ],
+      "samplePayload": {
+        "eventId": "evt-550e8400-e29b-41d4-a716-446655440012",
+        "policyNumber": "P987654321",
+        "id": "APP-2026-001234",
+        "applicationOrigin": {
+          "platform": "DigitalFirst",
+          "isElectronic": true,
+          "id": "DF-APP-001234"
+        },
+        "status": "cancelled",
+        "eventType": "applicationStatus.v1.applicationCancelled",
+        "notification": {
+          "initiator": "client",
+          "cancelledDate": "2026-06-18",
+          "reason": "Client elected to pursue alternative product"
+        }
+      }
+    }
+  ]
+}

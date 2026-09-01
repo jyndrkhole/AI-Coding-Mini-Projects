@@ -1,0 +1,16 @@
+services:
+  portal:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      PORT: 3000
+      DATABASE_PATH: /app/data/webhook-events.db
+      PUBLIC_BASE_URL: http://localhost:3000
+    volumes:
+      - webhook-data:/app/data
+
+volumes:
+  webhook-data:
