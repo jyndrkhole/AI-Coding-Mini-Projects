@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Dedicated public EC2 host for the IRI Webhook Test Portal
+
+Parameters:
+  WebhookApiKey:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    AllowedPattern: "^[A-Za-z0-9._~-]{16,128}$"
+    Description: Value sent as X-API-Key on POST /webhooks/iri
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    AllowedValues: [t3.micro, t3.small, t2.micro]
+    Description: t3.micro is enough and is free-tier eligible on many accounts
+
+Resources:
+  PortalSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public HTTP for Webhook Test Portal
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: Portal UI and webhook endpoint
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIpv6: ::/0
+      Tags:
+        - Key: Name
+          Value: webhook-test-portal
+        - Key: Project
+          Value: iri-webhook-portal
+
+  PortalInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
+      SecurityGroupIds:
+        - !Ref PortalSecurityGroup
+      Tags:
+        - Key: Name
+          Value: webhook-test-portal
+        - Key: Project
+          Value: iri-webhook-portal
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf update -y
+          dnf install -y docker git
+          systemctl enable --now docker
+          if ! docker compose version >/dev/null 2>&1; then
+            mkdir -p /usr/local/lib/docker/cli-plugins
+            curl -fsSL "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+            chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          fi
+          TOKEN=$(curl -fsS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+          PUBLIC_IP=$(curl -fsS -H "X-aws-ec2-metadata-token: ${!TOKEN}" http://169.254.169.254/latest/meta-data/public-ipv4)
+          install -d /opt/webhook-portal
+          cd /opt/webhook-portal
+          git clone --depth 1 https://github.com/jyndrkhole/AI-Coding-Mini-Projects.git repo
+          cd "repo/IRI Push Webhook App"
+          sed -i '/PUBLIC_BASE_URL:/d' docker-compose.yml || true
+          printf '%s\n' \
+            "PORT=3000" \
+            "NODE_ENV=production" \
+            "PUBLIC_BASE_URL=http://${!PUBLIC_IP}" \
+            "DATABASE_PATH=/app/data/webhook-events.db" \
+            "IRI_VERSION=v1" \
+            "WEBHOOK_RESPONSE_STATUS=200" \
+            "WEBHOOK_RESPONSE_DELAY_MS=0" \
+            "WEBHOOK_AUTH_ENABLED=true" \
+            "WEBHOOK_API_KEY=${WebhookApiKey}" \
+            "CORS_ORIGIN=*" \
+            "BODY_LIMIT=1mb" \
+            "RATE_LIMIT_WINDOW_MS=60000" \
+            "RATE_LIMIT_MAX=300" > .env
+          printf '%s\n' 'services:' '  portal:' '    ports:' '      - "80:3000"' '    restart: unless-stopped' > docker-compose.override.yml
+          docker compose up -d --build
+
+  PortalEip:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref PortalInstance
+      Tags:
+        - Key: Name
+          Value: webhook-test-portal
+        - Key: Project
+          Value: iri-webhook-portal
+
+Outputs:
+  PortalUrl:
+    Description: Open this in a browser
+    Value: !Sub "http://${PortalEip}"
+  WebhookUrl:
+    Description: Backend POST URL
+    Value: !Sub "http://${PortalEip}/webhooks/iri"
+  HealthUrl:
+    Description: Health check
+    Value: !Sub "http://${PortalEip}/health"

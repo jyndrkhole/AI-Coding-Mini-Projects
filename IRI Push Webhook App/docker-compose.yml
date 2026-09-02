@@ -8,9 +8,9 @@ services:
     environment:
       PORT: 3000
       DATABASE_PATH: /app/data/webhook-events.db
-      PUBLIC_BASE_URL: http://localhost:3000
     volumes:
       - webhook-data:/app/data
+    restart: unless-stopped
 
 volumes:
   webhook-data:

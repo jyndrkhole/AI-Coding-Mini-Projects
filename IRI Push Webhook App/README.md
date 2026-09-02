@@ -275,6 +275,12 @@ Webhook URL: http://localhost:3000/webhooks/iri
 UI: http://localhost:3000  
 Swagger: http://localhost:3000/api-docs
 
+## 14b. AWS public host
+
+Dedicated EC2 (Elastic IP, port 80, API key required): see [`deploy/aws/README.md`](deploy/aws/README.md).
+
+Launch `deploy/aws/cloudformation.yaml` from the AWS Console with an admin user. The CLI user `altzorAWS` does not currently have EC2/Lightsail create permission.
+
 ## 15. Testing
 
 ```bash
