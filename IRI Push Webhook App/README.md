@@ -277,7 +277,7 @@ Swagger: http://localhost:3000/api-docs
 
 ## 14b. AWS public host
 
-Dedicated **one EC2 per client** (do not share with other apps; do not use RDS). See [`deploy/aws/README.md`](deploy/aws/README.md).
+Install on **that client’s EC2** (can sit beside other apps on another port, e.g. 3100). SQLite on that host, not RDS. See [`deploy/aws/README.md`](deploy/aws/README.md).
 
 ## 15. Testing
 

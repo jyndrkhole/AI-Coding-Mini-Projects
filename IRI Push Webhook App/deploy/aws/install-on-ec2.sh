@@ -1,7 +1,6 @@
 #!/bin/bash
-# Install or update the Webhook Test Portal on THIS EC2.
-# Run once per client on that client's dedicated instance. Do not share the box
-# with other applications, and do not point this app at RDS — it uses local SQLite.
+# Install or update the Webhook Test Portal on a client EC2.
+# Safe to run alongside other apps on other ports. Uses local SQLite, not RDS.
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -10,14 +9,25 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 CLIENT_ID="${CLIENT_ID:?Set CLIENT_ID to a short client slug, e.g. acme}"
-PUBLIC_BASE_URL="${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL, e.g. http://203.0.113.10}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL, e.g. http://203.0.113.10:3100}"
 WEBHOOK_API_KEY="${WEBHOOK_API_KEY:?Set WEBHOOK_API_KEY}"
-HOST_PORT="${HOST_PORT:-80}"
+HOST_PORT="${HOST_PORT:-3100}"
 REPO_URL="${REPO_URL:-https://github.com/jyndrkhole/AI-Coding-Mini-Projects.git}"
 APP_SUBDIR="${APP_SUBDIR:-IRI Push Webhook App}"
 
 INSTALL_ROOT="/opt/webhook-portal/${CLIENT_ID}"
 COMPOSE_PROJECT="webhook-${CLIENT_ID}"
+
+if command -v ss >/dev/null 2>&1; then
+  already_ours=0
+  if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' | grep -q "webhook-${CLIENT_ID}"; then
+    already_ours=1
+  fi
+  if [ "$already_ours" -eq 0 ] && ss -lnt | awk '{print $4}' | grep -qE ":${HOST_PORT}$"; then
+    echo "Port ${HOST_PORT} is already in use on this EC2. Choose a free HOST_PORT."
+    exit 1
+  fi
+fi
 
 if command -v dnf >/dev/null 2>&1; then
   dnf install -y docker git
@@ -82,7 +92,7 @@ echo "Client:     ${CLIENT_ID}"
 echo "UI:         ${PUBLIC_BASE_URL%/}"
 echo "Webhook:    ${PUBLIC_BASE_URL%/}/webhooks/iri"
 echo "Health:     ${PUBLIC_BASE_URL%/}/health"
-echo "Header:     X-API-Key: (the WEBHOOK_API_KEY you passed)"
-echo "Data:       Docker volume ${COMPOSE_PROJECT}_webhook-data (SQLite, not RDS)"
+echo "Host port:  ${HOST_PORT}"
+echo "Data:       Docker volume ${COMPOSE_PROJECT}_webhook-data (SQLite on this EC2, not RDS)"
 echo
-echo "Open security group TCP ${HOST_PORT} to the backend that will POST."
+echo "Open this instance security group for TCP ${HOST_PORT}."
