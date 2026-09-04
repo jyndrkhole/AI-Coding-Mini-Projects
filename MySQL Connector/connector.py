@@ -11,11 +11,16 @@ missing = [name for name in required if not os.getenv(name)]
 if missing:
     raise SystemExit(f"Missing required environment variables: {', '.join(missing)}")
 
+use_ssl = os.getenv("MYSQL_SSL", "true").strip().lower() in {"1", "true", "yes"}
+ssl_ca = os.getenv("MYSQL_SSL_CA") or None
+
 result = run_inspection(
     host=os.environ["MYSQL_HOST"],
     user=os.environ["MYSQL_USER"],
     password=os.environ["MYSQL_PASSWORD"],
     database=os.environ["MYSQL_DATABASE"],
+    use_ssl=use_ssl,
+    ssl_ca=ssl_ca,
 )
 
 print("Connected successfully" if result.connected else "Failed")

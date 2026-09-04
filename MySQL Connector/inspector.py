@@ -35,13 +35,22 @@ def connect(
     user: str,
     password: str,
     database: str,
+    *,
+    use_ssl: bool = True,
+    ssl_ca: str | None = None,
 ) -> MySQLConnection:
-    return mysql.connector.connect(
-        host=host,
-        user=user,
-        password=password,
-        database=database,
-    )
+    options: dict = {
+        "host": host,
+        "user": user,
+        "password": password,
+        "database": database,
+        "connection_timeout": 15,
+        "ssl_disabled": not use_ssl,
+    }
+    if use_ssl and ssl_ca:
+        options["ssl_ca"] = ssl_ca
+        options["ssl_verify_cert"] = True
+    return mysql.connector.connect(**options)
 
 
 def _grantees(current_user: str) -> list[str]:
@@ -161,8 +170,18 @@ def run_inspection(
     user: str,
     password: str,
     database: str,
+    *,
+    use_ssl: bool = True,
+    ssl_ca: str | None = None,
 ) -> InspectionResult:
-    conn = connect(host, user, password, database)
+    conn = connect(
+        host,
+        user,
+        password,
+        database,
+        use_ssl=use_ssl,
+        ssl_ca=ssl_ca,
+    )
     try:
         return inspect_connection(conn)
     finally:

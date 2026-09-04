@@ -1,8 +1,13 @@
+import hashlib
+import hmac
 import os
+import sys
+from pathlib import Path
 
 import streamlit as st
 from dotenv import load_dotenv
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from inspector import run_inspection
 
 load_dotenv()
@@ -13,23 +18,103 @@ st.set_page_config(
     layout="wide",
 )
 
+
+def _setting(name: str, default: str = "") -> str:
+    try:
+        value = st.secrets[name]
+        if value is not None:
+            return str(value)
+    except Exception:
+        pass
+    return os.getenv(name, default)
+
+
+def is_public_host() -> bool:
+    flag = _setting("APP_PUBLIC", "").strip().lower()
+    if flag in {"1", "true", "yes"}:
+        return True
+    if flag in {"0", "false", "no"}:
+        return False
+    return Path("/mount/src").exists()
+
+
+def passwords_match(provided: str, expected: str) -> bool:
+    left = hashlib.sha256(provided.encode("utf-8")).digest()
+    right = hashlib.sha256(expected.encode("utf-8")).digest()
+    return hmac.compare_digest(left, right)
+
+
+def require_share_access() -> bool:
+    expected = _setting("APP_ACCESS_PASSWORD").strip()
+    public = is_public_host()
+
+    if public and not expected:
+        st.error(
+            "This public app is locked until an access password is set. "
+            "In Streamlit Cloud, open Manage app → Settings → Secrets and add "
+            "`APP_ACCESS_PASSWORD` plus `APP_PUBLIC = \"true\"`."
+        )
+        st.stop()
+
+    if not expected:
+        return True
+
+    if st.session_state.get("share_ok"):
+        return True
+
+    st.title("MySQL Connector Inspector")
+    st.caption("Enter the share password to continue. Database credentials are entered next and are not stored.")
+    with st.form("share_gate"):
+        provided = st.text_input("Access password", type="password")
+        submitted = st.form_submit_button("Continue", type="primary")
+    if submitted:
+        if passwords_match(provided, expected):
+            st.session_state.share_ok = True
+            st.rerun()
+        st.error("Incorrect access password")
+    st.stop()
+
+
+require_share_access()
+
+public = is_public_host()
 st.title("MySQL Connector Inspector")
 st.caption("Connect to a MySQL database and review session info, grants, and view access.")
+
+if public:
+    st.info(
+        "This is a shared inspector. It does not save your database password. "
+        "Use a read-only MySQL user, require SSL, and allow this app's host to reach port 3306."
+    )
+
+with st.sidebar:
+    st.subheader("Connection security")
+    use_ssl = st.checkbox(
+        "Require SSL/TLS",
+        value=_setting("MYSQL_SSL", "true").strip().lower() not in {"0", "false", "no"},
+        help="Keep this on for any database that is not on the same private network.",
+    )
+    ssl_ca = st.text_input(
+        "SSL CA file path (optional)",
+        value=_setting("MYSQL_SSL_CA") if not public else "",
+        help="Path to a CA bundle if your provider requires it, such as Amazon RDS.",
+    )
+    st.caption("Do not use an admin account. Prefer a user with SELECT and SHOW VIEW only.")
+
+default_host = "" if public else _setting("MYSQL_HOST")
+default_user = "" if public else _setting("MYSQL_USER")
+default_database = "" if public else _setting("MYSQL_DATABASE")
 
 with st.form("connection_form"):
     col1, col2 = st.columns(2)
 
     with col1:
-        host = st.text_input("Host", value=os.getenv("MYSQL_HOST", ""))
-        user = st.text_input("User", value=os.getenv("MYSQL_USER", ""))
+        host = st.text_input("Host", value=default_host)
+        user = st.text_input("User", value=default_user)
 
     with col2:
-        database = st.text_input("Database", value=os.getenv("MYSQL_DATABASE", ""))
-        password = st.text_input(
-            "Password",
-            value=os.getenv("MYSQL_PASSWORD", ""),
-            type="password",
-        )
+        database = st.text_input("Database", value=default_database)
+        password = st.text_input("Password", type="password")
 
     submitted = st.form_submit_button("Connect & Inspect", type="primary", use_container_width=True)
 
@@ -49,7 +134,14 @@ if submitted:
     else:
         with st.spinner("Connecting and inspecting..."):
             try:
-                result = run_inspection(host, user, password, database)
+                result = run_inspection(
+                    host,
+                    user,
+                    password,
+                    database,
+                    use_ssl=use_ssl,
+                    ssl_ca=ssl_ca.strip() or None,
+                )
             except Exception as exc:
                 st.error(f"Connection failed: {exc}")
             else:
