@@ -1,4 +1,4 @@
-# Install Webhook Test Portal on Windows Server EC2.
+# Install Application Status Push Notifications Test Portal on Windows Server EC2.
 # Run from an elevated PowerShell in the cloned project directory, or pass -AppDir.
 param(
   [Parameter(Mandatory = $true)][string]$ClientId,

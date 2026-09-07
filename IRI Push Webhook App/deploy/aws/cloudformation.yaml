@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Dedicated public EC2 host for the IRI Webhook Test Portal
+Description: Dedicated public EC2 host for the Application Status Push Notifications Test Portal
 
 Parameters:
   WebhookApiKey:
@@ -18,7 +18,7 @@ Resources:
   PortalSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Public HTTP for Webhook Test Portal
+      GroupDescription: Public HTTP for Application Status Push Notifications Test Portal
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80

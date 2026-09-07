@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api } from "../services/api";
 import type { PortalConfig } from "../types";
+import { APP_NAME } from "../constants";
 import { ThemeToggle } from "./ThemeToggle";
 
 function copyText(value: string) {
@@ -33,8 +34,8 @@ export function Layout() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <p className="brand-kicker">IRI Push Notification</p>
-          <h1>Webhook Test Portal</h1>
+          <p className="brand-kicker">IRI</p>
+          <h1>{APP_NAME}</h1>
         </div>
         <nav className="nav">
           <NavLink to="/" end>
@@ -49,8 +50,8 @@ export function Layout() {
       <div className="main">
         <header className="topbar">
           <div>
-            <h2>Webhook Test Portal</h2>
-            <p className="topbar-sub">IRI Push Notification receiver</p>
+            <h2>{APP_NAME}</h2>
+            <p className="topbar-sub">Test webhook receiver</p>
           </div>
           <div className="status-row">
             <span className={`dot ${online ? "online" : "offline"}`} />

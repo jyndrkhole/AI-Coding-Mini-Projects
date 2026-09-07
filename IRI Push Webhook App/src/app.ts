@@ -57,7 +57,7 @@ export function createApp() {
   app.use("/webhooks", webhookRouter);
   app.use("/api", apiRouter);
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openApiSpec, {
-    customSiteTitle: "IRI Push Notification Test Portal API"
+    customSiteTitle: "Application Status Push Notifications Test Portal API"
   }));
   app.get("/api-docs.json", (_req, res) => {
     res.json(openApiSpec);

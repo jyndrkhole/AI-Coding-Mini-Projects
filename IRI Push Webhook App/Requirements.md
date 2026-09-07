@@ -1,6 +1,6 @@
 Build a complete internal application called:
 
-"IRI Push Notification Test Portal"
+"Application Status Push Notifications Test Portal"
 
 ============================================================
 
@@ -494,15 +494,13 @@ Build a clean, modern developer-focused dashboard.
 
 Application title:
 
-IRI Push Notification
-
-Internal Test Portal
+Application Status Push Notifications Test Portal
 
 Header:
 
-IRI Push Notification
+IRI
 
-Webhook Test Portal
+Application Status Push Notifications Test Portal
 
 Status:
 
@@ -1110,7 +1108,7 @@ flowchart TD
 
     A[Backend Push Notification Service]
 
-      -->|HTTP POST| B[IRI Webhook Test Portal]
+      -->|HTTP POST| B[Application Status Push Notifications Test Portal]
 
     B --> C[Authentication]
 
