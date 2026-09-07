@@ -102,3 +102,72 @@ Then set `PUBLIC_BASE_URL=https://webhooks-acme.example.com` (no port). You do n
 ## 6. Update
 
 Re-run the same script with the **same** `CLIENT_ID` and `HOST_PORT`. It pulls `main` and rebuilds; existing events stay on the volume.
+
+## 7. Windows Server EC2
+
+Do not use `install-on-ec2.sh` on Windows. Use Node.js on a free port (default **3100**).
+
+### Prerequisites
+
+- Node.js 22 LTS (https://nodejs.org)
+- Git clone of this repo
+- Inbound TCP **3100** on the instance security group
+- If `npm install` fails on `better-sqlite3`, install Visual Studio Build Tools (Desktop development with C++)
+
+### Commands (Administrator PowerShell)
+
+```powershell
+cd C:\path\to\IRIPushWebhook
+
+netstat -ano | findstr ":3100"
+
+copy .env.example .env
+notepad .env
+```
+
+Set in `.env`:
+
+```env
+PORT=3100
+NODE_ENV=production
+PUBLIC_BASE_URL=http://<EC2_PUBLIC_IP>:3100
+DATABASE_PATH=./data/webhook-events.db
+WEBHOOK_AUTH_ENABLED=true
+WEBHOOK_API_KEY=<generate-and-save>
+```
+
+Or run the helper (writes `.env`, installs, builds, opens the firewall):
+
+```powershell
+cd C:\path\to\IRIPushWebhook
+powershell -ExecutionPolicy Bypass -File .\deploy\aws\install-on-windows.ps1 `
+  -ClientId acme `
+  -PublicBaseUrl http://<EC2_PUBLIC_IP>:3100 `
+  -WebhookApiKey "<API_KEY>" `
+  -Port 3100
+```
+
+Then:
+
+```powershell
+New-Item -ItemType Directory -Force -Path data
+npm install
+npm install --prefix frontend
+npm run build --prefix frontend
+New-NetFirewallRule -DisplayName "Webhook Portal 3100" -Direction Inbound -Protocol TCP -LocalPort 3100 -Action Allow
+npm start
+```
+
+Health: `http://127.0.0.1:3100/health`  
+UI: `http://<EC2_PUBLIC_IP>:3100`  
+Webhook: `POST http://<EC2_PUBLIC_IP>:3100/webhooks/iri` with `X-API-Key`
+
+To survive RDP logoff, run it as a Windows service with NSSM (https://nssm.cc/download).
+
+### Pull this Windows update on the EC2
+
+```powershell
+cd C:\path\to\IRIPushWebhook
+git pull
+```
+
