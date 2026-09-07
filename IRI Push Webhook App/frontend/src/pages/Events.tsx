@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { StatusBadge } from "../components/StatusBadge";
 import { useWebhookStream } from "../hooks/useWebhookStream";
 import { api } from "../services/api";
+import { formatReceivedAt } from "../utils/datetime";
 import type { CatalogEvent, EventListQuery, WebhookEvent } from "../types";
 
 export function EventsPage() {
@@ -111,7 +112,7 @@ export function EventsPage() {
           <table>
             <thead>
               <tr>
-                <th>Timestamp</th>
+                <th>Received</th>
                 <th>Event</th>
                 <th>Policy Number</th>
                 <th>Status</th>
@@ -122,7 +123,7 @@ export function EventsPage() {
             <tbody>
               {events.map((event) => (
                 <tr key={event.id}>
-                  <td className="mono">{new Date(event.receivedAt).toLocaleString()}</td>
+                  <td className="mono">{formatReceivedAt(event.receivedAt)}</td>
                   <td>
                     <div className="mono">{event.eventType ?? "unknown"}</div>
                     <div className="help">{event.displayName}</div>

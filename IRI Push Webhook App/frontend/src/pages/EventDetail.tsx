@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { JsonViewer } from "../components/JsonViewer";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../services/api";
+import { formatReceivedAt } from "../utils/datetime";
 import type { WebhookEvent } from "../types";
 
 export function EventDetailPage() {
@@ -50,8 +51,8 @@ export function EventDetailPage() {
             </dd>
             <dt>Policy Number</dt>
             <dd>{event.policyNumber ?? "—"}</dd>
-            <dt>Received Time</dt>
-            <dd>{new Date(event.receivedAt).toLocaleString()}</dd>
+            <dt>Received</dt>
+            <dd>{formatReceivedAt(event.receivedAt)}</dd>
             <dt>HTTP Status</dt>
             <dd>
               <StatusBadge status={event.responseStatus} />

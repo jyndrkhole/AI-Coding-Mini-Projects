@@ -4,11 +4,8 @@ import { StatCard } from "../components/StatCard";
 import { StatusBadge } from "../components/StatusBadge";
 import { useWebhookStream } from "../hooks/useWebhookStream";
 import { api } from "../services/api";
+import { formatReceivedAt } from "../utils/datetime";
 import type { DashboardStats, WebhookEvent } from "../types";
-
-function formatTime(value: string) {
-  return new Date(value).toLocaleTimeString();
-}
 
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -51,7 +48,7 @@ export function DashboardPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Timestamp</th>
+                  <th>Received</th>
                   <th>Event</th>
                   <th>Policy Number</th>
                   <th>Status</th>
@@ -62,7 +59,7 @@ export function DashboardPage() {
               <tbody>
                 {events.map((event) => (
                   <tr key={event.id}>
-                    <td className="mono">{formatTime(event.receivedAt)}</td>
+                    <td className="mono">{formatReceivedAt(event.receivedAt)}</td>
                     <td>
                       <div className="mono">{event.eventType ?? "unknown"}</div>
                       {!event.knownEvent ? <span className="badge warn">Unknown/Future Event</span> : null}
