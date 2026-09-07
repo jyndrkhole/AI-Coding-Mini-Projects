@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install or update the Application Status Push Notifications Test Portal on a client EC2.
+# Install or update the Push Notifications Test Portal on a client EC2.
 # Safe to run alongside other apps on other ports. Uses local SQLite, not RDS.
 set -euo pipefail
 

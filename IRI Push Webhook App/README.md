@@ -1,4 +1,4 @@
-# Application Status Push Notifications Test Portal
+# Push Notifications Test Portal
 
 Internal test harness / dummy webhook receiver for IRI Application Status Push Notifications (v1).
 
@@ -27,7 +27,7 @@ Event catalogue: `config/iri/v1/events.json`
 ```mermaid
 flowchart TD
     A[Backend Push Notification Service]
-      -->|HTTP POST| B[Application Status Push Notifications Test Portal]
+      -->|HTTP POST| B[Push Notifications Test Portal]
     B --> C[Optional API-key auth]
     C --> D[Webhook Controller]
     D --> E[Webhook Service]

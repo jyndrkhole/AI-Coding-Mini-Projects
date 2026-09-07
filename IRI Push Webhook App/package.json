@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Application Status Push Notifications Test Portal — internal test harness / dummy webhook receiver",
+  "description": "Push Notifications Test Portal — internal test harness / dummy webhook receiver",
   "scripts": {
     "dev": "concurrently -n api,web -c cyan,magenta \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "tsx watch src/server.ts",

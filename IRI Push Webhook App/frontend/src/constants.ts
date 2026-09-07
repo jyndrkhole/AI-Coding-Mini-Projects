@@ -1,1 +1,1 @@
-export const APP_NAME = "Application Status Push Notifications Test Portal";
+export const APP_NAME = "Push Notifications Test Portal";

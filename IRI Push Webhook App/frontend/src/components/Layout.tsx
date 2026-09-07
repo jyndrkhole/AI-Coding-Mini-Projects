@@ -34,7 +34,7 @@ export function Layout() {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <p className="brand-kicker">IRI</p>
+          <p className="brand-kicker">Application Status</p>
           <h1>{APP_NAME}</h1>
         </div>
         <nav className="nav">

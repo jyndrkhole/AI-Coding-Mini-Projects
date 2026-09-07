@@ -1,7 +1,7 @@
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
-    title: "Application Status Push Notifications Test Portal",
+    title: "Push Notifications Test Portal",
     description:
       "INTERNAL TEST WEBHOOK RECEIVER. This service does not implement carrier business logic. It accepts IRI Application Status Push Notification webhooks, persists them, and returns a configurable HTTP response so delivery, retry, and timeout behavior can be tested.",
     version: "1.0.0"
