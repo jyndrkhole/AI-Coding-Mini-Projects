@@ -20,16 +20,33 @@ function friendlyApiError(error: unknown): Error {
   if (axios.isAxiosError(error)) {
     const ax = error as AxiosError<{ detail?: string; message?: string }>;
     const status = ax.response?.status;
-    if (status === 404) {
+    const backendHint =
+      'Start the Schema Validator backend: `cd schema-validator && PYTHONPATH=. uvicorn backend.main:app --reload --port 8010`';
+
+    // Vite proxy often surfaces a dead backend as 500/502/503/504
+    if (
+      status === 404 ||
+      status === 500 ||
+      status === 502 ||
+      status === 503 ||
+      status === 504 ||
+      ax.code === 'ERR_NETWORK' ||
+      ax.code === 'ECONNREFUSED' ||
+      ax.message?.includes('Network Error')
+    ) {
+      // Keep real backend validation errors (JSON body with our shape) intact
+      const data = ax.response?.data;
+      if (
+        status === 500 &&
+        data &&
+        typeof data === 'object' &&
+        ('detail' in data || 'errors' in data || 'valid' in data)
+      ) {
+        const detail = (data as { detail?: string }).detail;
+        return new Error(typeof detail === 'string' ? detail : ax.message);
+      }
       return new Error(
-        'Schema Validator API not found (404). Start the backend on port 8010: ' +
-          '`uvicorn backend.main:app --reload --port 8010` (from schema-validator/ with PYTHONPATH=.).',
-      );
-    }
-    if (status === 502 || status === 503 || ax.code === 'ERR_NETWORK' || ax.code === 'ECONNREFUSED') {
-      return new Error(
-        'Cannot reach Schema Validator backend. Start it with: ' +
-          '`cd schema-validator && PYTHONPATH=. uvicorn backend.main:app --reload --port 8010`',
+        `Cannot reach Schema Validator API${status ? ` (${status})` : ''}. ${backendHint}`,
       );
     }
     const detail = ax.response?.data?.detail || ax.response?.data?.message || ax.message;

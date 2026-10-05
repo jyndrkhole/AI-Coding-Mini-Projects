@@ -82,9 +82,15 @@ class OpenAPIExtractor:
                 f"Available: {available}"
             )
 
+        # Resolve response-level $ref (e.g. #/components/responses/...)
+        if isinstance(response, dict) and "$ref" in response:
+            resolved_response = self._resolve_refs(response, document, seen=set())
+            if isinstance(resolved_response, dict):
+                response = resolved_response
+
         # OAS3 uses content; Swagger 2 uses schema
         schema: Optional[Dict[str, Any]] = None
-        if "content" in response:
+        if isinstance(response, dict) and "content" in response:
             content = response["content"] or {}
             # Prefer application/json
             media = (
@@ -94,7 +100,7 @@ class OpenAPIExtractor:
             )
             if media and isinstance(media, dict):
                 schema = media.get("schema")
-        elif "schema" in response:
+        elif isinstance(response, dict) and "schema" in response:
             schema = response.get("schema")
 
         if schema is None:

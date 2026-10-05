@@ -72,6 +72,52 @@ def test_openapi_endpoint_listing(petstore: dict):
     assert any(e.path == "/pets/{petId}" and e.method == "GET" for e in endpoints)
 
 
+def test_openapi_resolves_component_response_ref():
+    """Response objects may be $ref'd under #/components/responses/*."""
+    document = {
+        "openapi": "3.1.0",
+        "info": {"title": "t", "version": "1"},
+        "paths": {
+            "/v1/policies/{policyNumber}/summary": {
+                "get": {
+                    "responses": {
+                        "200": {"$ref": "#/components/responses/getPolicySummaryResponse"}
+                    }
+                }
+            }
+        },
+        "components": {
+            "responses": {
+                "getPolicySummaryResponse": {
+                    "description": "ok",
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/PolicySummary"}
+                        }
+                    },
+                }
+            },
+            "schemas": {
+                "PolicySummary": {
+                    "type": "object",
+                    "required": ["carrierId"],
+                    "properties": {"carrierId": {"type": "string"}},
+                }
+            },
+        },
+    }
+    extractor = OpenAPIExtractor()
+    schema, _ = extractor.extract_response_schema(
+        document,
+        path="/v1/policies/{policyNumber}/summary",
+        method="GET",
+        status_code="200",
+    )
+    assert schema.get("type") == "object"
+    assert "carrierId" in (schema.get("properties") or {})
+    assert "carrierId" in (schema.get("required") or [])
+
+
 @pytest.mark.asyncio
 async def test_validation_service_openapi_pet():
     service = ValidationService()
