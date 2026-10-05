@@ -1,0 +1,185 @@
+{
+  "recommendations": [
+    {
+      "rule_id": "DEMO-EC2-SCHEDULE",
+      "resource_id": "i-0devsched001",
+      "source": "DEMO",
+      "service": "EC2",
+      "title": "Schedule the development server",
+      "description": "The development server runs all day. Usage is concentrated during business hours, so stopping it overnight can reduce its running cost without changing the application.",
+      "current_monthly_cost": 2400,
+      "estimated_monthly_savings": 1200,
+      "estimated_annual_savings": 14400,
+      "confidence": "HIGH",
+      "data_quality": "HIGH",
+      "risk_level": "LOW",
+      "priority": 1,
+      "action_type": "SCHEDULE",
+      "status": "OPEN",
+      "evidence": {
+        "summary": "Running 24x7. Environment=dev. CPUUtilization averages 7.4% and rises during weekday business hours.",
+        "facts": [
+          "Instance i-0devsched001 is running",
+          "Tag Environment=dev",
+          "CPUUtilization average is 7.4% for September 2026"
+        ],
+        "assumptions": [
+          "Running the development server 12 hours a day instead of 24 hours would avoid about half of its compute cost."
+        ],
+        "pricing_available": false,
+        "savings_label": "Estimated potential savings"
+      }
+    },
+    {
+      "rule_id": "DEMO-EBS-UNATTACHED",
+      "resource_id": "vol-0unattached01",
+      "source": "DEMO",
+      "service": "EBS",
+      "title": "Release the unattached data volume",
+      "description": "This volume appears unused based on the available evidence. Confirm ownership and dependencies before deletion.",
+      "current_monthly_cost": 400,
+      "estimated_monthly_savings": 400,
+      "estimated_annual_savings": 4800,
+      "confidence": "HIGH",
+      "data_quality": "HIGH",
+      "risk_level": "LOW",
+      "priority": 2,
+      "action_type": "CLEANUP",
+      "status": "OPEN",
+      "evidence": {
+        "summary": "Volume vol-0unattached01 is 100 GiB gp3 and its state is available, with no attachment.",
+        "facts": [
+          "State is available",
+          "No instance attachment is recorded",
+          "Size is 100 GiB"
+        ],
+        "assumptions": [
+          "A volume with no attachment has no active workload. A snapshot may still be required before deletion."
+        ],
+        "pricing_available": false,
+        "savings_label": "Estimated potential savings"
+      }
+    },
+    {
+      "rule_id": "DEMO-EIP-UNASSOCIATED",
+      "resource_id": "eipalloc-0unused01",
+      "source": "DEMO",
+      "service": "EC2",
+      "title": "Release the unassociated Elastic IP",
+      "description": "This address appears unused based on the available evidence. Confirm it is not reserved for failover before release.",
+      "current_monthly_cost": 180,
+      "estimated_monthly_savings": 180,
+      "estimated_annual_savings": 2160,
+      "confidence": "HIGH",
+      "data_quality": "HIGH",
+      "risk_level": "LOW",
+      "priority": 3,
+      "action_type": "RELEASE",
+      "status": "OPEN",
+      "evidence": {
+        "summary": "Elastic IP 203.0.113.10 has no association.",
+        "facts": [
+          "Allocation eipalloc-0unused01 is unassociated",
+          "No NAT Gateway or instance is attached"
+        ],
+        "assumptions": [
+          "An unassociated public address is billed for the full demo month."
+        ],
+        "pricing_available": false,
+        "savings_label": "Estimated potential savings"
+      }
+    },
+    {
+      "rule_id": "DEMO-EC2-COLOCATED-DB",
+      "resource_id": "i-0prodapp001",
+      "source": "DEMO",
+      "service": "EC2",
+      "title": "Validate the prod server before any resize",
+      "description": "Low CPU utilization does not automatically mean this instance should be downsized. The application and MySQL run on the same server. Gather memory, disk I/O, database connections, and latency before considering a smaller size.",
+      "current_monthly_cost": 4200,
+      "estimated_monthly_savings": 900,
+      "estimated_annual_savings": 10800,
+      "confidence": "MEDIUM",
+      "data_quality": "MEDIUM",
+      "risk_level": "MEDIUM",
+      "priority": 4,
+      "action_type": "RIGHTSIZE",
+      "status": "OPEN",
+      "evidence": {
+        "summary": "prod-app-mysql is a t3.large running the application and MySQL together. CPUUtilization averages 21.6%. Memory, disk I/O, connections, and latency were not collected.",
+        "facts": [
+          "Instance i-0prodapp001 is running",
+          "Tag Environment=prod",
+          "Metadata records application and MySQL on the same instance",
+          "CPUUtilization average is 21.6% for September 2026",
+          "No memory metric is present"
+        ],
+        "assumptions": [
+          "A smaller instance might reduce cost if memory, disk, and database load also fit. That is not established by the CPU average alone."
+        ],
+        "pricing_available": false,
+        "savings_label": "Estimated potential savings"
+      }
+    },
+    {
+      "rule_id": "DEMO-EBS-OLD-SNAPSHOTS",
+      "resource_id": "snap-0oldbackup1",
+      "source": "DEMO",
+      "service": "EBS",
+      "title": "Review snapshots older than six months",
+      "description": "Three completed snapshots started between November 2025 and January 2026. Confirm they are not required for restore before deletion.",
+      "current_monthly_cost": 570,
+      "estimated_monthly_savings": 570,
+      "estimated_annual_savings": 6840,
+      "confidence": "MEDIUM",
+      "data_quality": "MEDIUM",
+      "risk_level": "MEDIUM",
+      "priority": 5,
+      "action_type": "CLEANUP",
+      "status": "OPEN",
+      "evidence": {
+        "summary": "snap-0oldbackup1, snap-0oldbackup2, and snap-0oldbackup3 are completed and older than six months.",
+        "facts": [
+          "snap-0oldbackup1 started 2025-11-02",
+          "snap-0oldbackup2 started 2025-12-15",
+          "snap-0oldbackup3 started 2026-01-10"
+        ],
+        "assumptions": [
+          "Deleting these snapshots would remove their storage cost. Retention rules were not provided."
+        ],
+        "pricing_available": false,
+        "savings_label": "Estimated potential savings"
+      }
+    },
+    {
+      "rule_id": "DEMO-NAT-S3-PATH",
+      "resource_id": "nat-0abcd123",
+      "source": "DEMO",
+      "service": "NAT Gateway",
+      "title": "Review the NAT path for S3 traffic",
+      "description": "This is an architecture question, not a delete recommendation. If a meaningful share of NAT traffic is headed to S3, a gateway endpoint could bypass that portion. Measure the traffic before changing the network.",
+      "current_monthly_cost": 2450,
+      "estimated_monthly_savings": 1000,
+      "estimated_annual_savings": 12000,
+      "confidence": "MEDIUM",
+      "data_quality": "MEDIUM",
+      "risk_level": "MEDIUM",
+      "priority": 6,
+      "action_type": "ARCHITECTURE",
+      "status": "OPEN",
+      "evidence": {
+        "summary": "NAT Gateway nat-0abcd123 is available in us-east-1. No S3 gateway VPC endpoint is in the demo inventory. The share of traffic that is S3 was not measured.",
+        "facts": [
+          "nat-0abcd123 state is available",
+          "BytesOutToDestination average is about 1.85 GB per sample period in September 2026",
+          "No S3 gateway endpoint resource is present"
+        ],
+        "assumptions": [
+          "The estimate assumes part of the NAT cost is S3 traffic that a gateway endpoint could bypass. That share was not measured."
+        ],
+        "pricing_available": false,
+        "savings_label": "Estimated potential savings"
+      }
+    }
+  ]
+}

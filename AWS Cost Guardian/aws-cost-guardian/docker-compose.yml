@@ -1,0 +1,17 @@
+services:
+  api:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      MOCK_AWS: "true"
+      DATABASE_URL: sqlite:////data/aws_cost_guardian.db
+      MOCK_DATA_DIR: /mock_data
+      API_CORS_ORIGINS: http://localhost:5173
+    volumes:
+      - ./mock_data:/mock_data:ro
+      - api-data:/data
+
+volumes:
+  api-data:

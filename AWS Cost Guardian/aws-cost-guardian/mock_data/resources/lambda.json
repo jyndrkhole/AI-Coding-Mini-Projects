@@ -1,0 +1,28 @@
+{
+  "resources": [
+    {
+      "resource_id": "invoice-thumbnail-generator",
+      "resource_type": "function",
+      "service": "Lambda",
+      "region": "us-east-1",
+      "name": "invoice-thumbnail-generator",
+      "state": "active",
+      "instance_type": null,
+      "environment": "prod",
+      "tags": {"Name": "invoice-thumbnail-generator", "Environment": "prod"},
+      "metadata": {"memory_mb": 512, "timeout_seconds": 30, "runtime": "python3.12"}
+    },
+    {
+      "resource_id": "nightly-export",
+      "resource_type": "function",
+      "service": "Lambda",
+      "region": "ap-south-1",
+      "name": "nightly-export",
+      "state": "active",
+      "instance_type": null,
+      "environment": "prod",
+      "tags": {"Name": "nightly-export", "Environment": "prod"},
+      "metadata": {"memory_mb": 256, "timeout_seconds": 120, "runtime": "python3.12"}
+    }
+  ]
+}

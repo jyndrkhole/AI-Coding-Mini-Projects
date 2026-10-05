@@ -1,0 +1,76 @@
+{
+  "resources": [
+    {
+      "resource_id": "vol-0devroot001",
+      "resource_type": "volume",
+      "service": "EBS",
+      "region": "us-east-1",
+      "name": "dev-app-root",
+      "state": "in-use",
+      "instance_type": "gp3",
+      "environment": "dev",
+      "tags": {"Name": "dev-app-root", "Environment": "dev"},
+      "metadata": {"size_gib": 40, "attached_to": "i-0devsched001"}
+    },
+    {
+      "resource_id": "vol-0prodroot001",
+      "resource_type": "volume",
+      "service": "EBS",
+      "region": "us-east-1",
+      "name": "prod-app-root",
+      "state": "in-use",
+      "instance_type": "gp3",
+      "environment": "prod",
+      "tags": {"Name": "prod-app-root", "Environment": "prod"},
+      "metadata": {"size_gib": 80, "attached_to": "i-0prodapp001"}
+    },
+    {
+      "resource_id": "vol-0unattached01",
+      "resource_type": "volume",
+      "service": "EBS",
+      "region": "us-east-1",
+      "name": "orphan-data-volume",
+      "state": "available",
+      "instance_type": "gp3",
+      "environment": null,
+      "tags": {"Name": "orphan-data-volume"},
+      "metadata": {"size_gib": 100, "attached_to": null}
+    },
+    {
+      "resource_id": "snap-0oldbackup1",
+      "resource_type": "snapshot",
+      "service": "EBS",
+      "region": "us-east-1",
+      "name": "backup-2025-11",
+      "state": "completed",
+      "instance_type": null,
+      "environment": "prod",
+      "tags": {"Name": "backup-2025-11"},
+      "metadata": {"started_at": "2025-11-02", "volume_size_gib": 80}
+    },
+    {
+      "resource_id": "snap-0oldbackup2",
+      "resource_type": "snapshot",
+      "service": "EBS",
+      "region": "us-east-1",
+      "name": "backup-2025-12",
+      "state": "completed",
+      "instance_type": null,
+      "environment": "prod",
+      "tags": {"Name": "backup-2025-12"},
+      "metadata": {"started_at": "2025-12-15", "volume_size_gib": 80}
+    },
+    {
+      "resource_id": "snap-0oldbackup3",
+      "resource_type": "snapshot",
+      "service": "EBS",
+      "region": "us-east-1",
+      "name": "backup-2026-01",
+      "state": "completed",
+      "instance_type": null,
+      "environment": "prod",
+      "tags": {"Name": "backup-2026-01"},
+      "metadata": {"started_at": "2026-01-10", "volume_size_gib": 80}
+    }
+  ]
+}

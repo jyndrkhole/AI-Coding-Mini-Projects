@@ -1,0 +1,28 @@
+{
+  "resources": [
+    {
+      "resource_id": "demo-finops-logs",
+      "resource_type": "bucket",
+      "service": "S3",
+      "region": "us-east-1",
+      "name": "demo-finops-logs",
+      "state": "active",
+      "instance_type": null,
+      "environment": "prod",
+      "tags": {"Name": "demo-finops-logs", "Environment": "prod"},
+      "metadata": {"lifecycle": null, "versioning": "Disabled"}
+    },
+    {
+      "resource_id": "demo-finops-assets",
+      "resource_type": "bucket",
+      "service": "S3",
+      "region": "ap-south-1",
+      "name": "demo-finops-assets",
+      "state": "active",
+      "instance_type": null,
+      "environment": "prod",
+      "tags": {"Name": "demo-finops-assets", "Environment": "prod"},
+      "metadata": {"lifecycle": "transition-ia-90", "versioning": "Enabled"}
+    }
+  ]
+}

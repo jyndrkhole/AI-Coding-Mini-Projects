@@ -1,0 +1,14 @@
+{
+  "source": "COST_OPTIMIZATION_HUB",
+  "imported": false,
+  "note": "Sample Cost Optimization Hub payload for a later phase. These rows are not part of the dashboard totals.",
+  "recommendations": [
+    {
+      "recommendation_id": "coh-demo-eip-1",
+      "resource_id": "eipalloc-0unused01",
+      "action_type": "Delete",
+      "estimated_monthly_savings": 180,
+      "currency": "INR"
+    }
+  ]
+}

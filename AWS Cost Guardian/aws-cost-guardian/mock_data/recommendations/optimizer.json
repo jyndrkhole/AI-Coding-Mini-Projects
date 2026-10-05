@@ -1,0 +1,14 @@
+{
+  "source": "COMPUTE_OPTIMIZER",
+  "imported": false,
+  "note": "Sample Compute Optimizer payload for a later phase. These rows are not part of the dashboard totals.",
+  "recommendations": [
+    {
+      "resource_id": "i-0devsched001",
+      "finding": "OVER_PROVISIONED",
+      "current_instance_type": "t3.medium",
+      "recommended_instance_type": "t3.small",
+      "estimated_monthly_savings": 700
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "resources": [
+    {
+      "resource_id": "i-0devsched001",
+      "resource_type": "instance",
+      "service": "EC2",
+      "region": "us-east-1",
+      "name": "dev-app-server",
+      "state": "running",
+      "instance_type": "t3.medium",
+      "environment": "dev",
+      "tags": {"Name": "dev-app-server", "Environment": "dev"},
+      "metadata": {"platform": "linux", "schedule": "none"}
+    },
+    {
+      "resource_id": "i-0prodapp001",
+      "resource_type": "instance",
+      "service": "EC2",
+      "region": "us-east-1",
+      "name": "prod-app-mysql",
+      "state": "running",
+      "instance_type": "t3.large",
+      "environment": "prod",
+      "tags": {"Name": "prod-app-mysql", "Environment": "prod"},
+      "metadata": {
+        "platform": "linux",
+        "roles": ["application", "mysql"],
+        "note": "Application and MySQL are hosted on the same instance."
+      }
+    }
+  ]
+}

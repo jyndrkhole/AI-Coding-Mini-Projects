@@ -1,0 +1,52 @@
+{
+  "resources": [
+    {
+      "resource_id": "nat-0abcd123",
+      "resource_type": "nat_gateway",
+      "service": "NAT Gateway",
+      "region": "us-east-1",
+      "name": "app-vpc-nat",
+      "state": "available",
+      "instance_type": null,
+      "environment": "prod",
+      "tags": {"Name": "app-vpc-nat", "Environment": "prod"},
+      "metadata": {"vpc_id": "vpc-0demo123", "subnet_id": "subnet-0public1", "connectivity": "public"}
+    },
+    {
+      "resource_id": "eipalloc-0unused01",
+      "resource_type": "elastic_ip",
+      "service": "EC2",
+      "region": "us-east-1",
+      "name": "unused-eip",
+      "state": "unassociated",
+      "instance_type": null,
+      "environment": null,
+      "tags": {"Name": "unused-eip"},
+      "metadata": {"public_ip": "203.0.113.10", "association_id": null}
+    },
+    {
+      "resource_id": "eipalloc-0natassoc1",
+      "resource_type": "elastic_ip",
+      "service": "EC2",
+      "region": "us-east-1",
+      "name": "nat-eip",
+      "state": "associated",
+      "instance_type": null,
+      "environment": "prod",
+      "tags": {"Name": "nat-eip", "Environment": "prod"},
+      "metadata": {"public_ip": "203.0.113.20", "associated_to": "nat-0abcd123"}
+    },
+    {
+      "resource_id": "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/demo-public/0abc",
+      "resource_type": "load_balancer",
+      "service": "ELB",
+      "region": "us-east-1",
+      "name": "demo-public",
+      "state": "active",
+      "instance_type": "application",
+      "environment": "prod",
+      "tags": {"Name": "demo-public", "Environment": "prod"},
+      "metadata": {"scheme": "internet-facing", "vpc_id": "vpc-0demo123"}
+    }
+  ]
+}

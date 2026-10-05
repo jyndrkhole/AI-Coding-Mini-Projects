@@ -1,0 +1,54 @@
+{
+  "metrics": [
+    {
+      "resource_id": "i-0devsched001",
+      "metric_name": "CPUUtilization",
+      "timestamp": "2026-09-30T23:00:00+00:00",
+      "period": 86400,
+      "average": 7.4,
+      "minimum": 1.1,
+      "maximum": 28.4,
+      "sample_count": 720
+    },
+    {
+      "resource_id": "i-0prodapp001",
+      "metric_name": "CPUUtilization",
+      "timestamp": "2026-09-30T23:00:00+00:00",
+      "period": 86400,
+      "average": 21.6,
+      "minimum": 6.2,
+      "maximum": 71.4,
+      "sample_count": 720
+    },
+    {
+      "resource_id": "nat-0abcd123",
+      "metric_name": "BytesOutToDestination",
+      "timestamp": "2026-09-30T23:00:00+00:00",
+      "period": 86400,
+      "average": 1850000000,
+      "minimum": 420000000,
+      "maximum": 3100000000,
+      "sample_count": 720
+    },
+    {
+      "resource_id": "db-demo-reporting",
+      "metric_name": "CPUUtilization",
+      "timestamp": "2026-09-30T23:00:00+00:00",
+      "period": 86400,
+      "average": 18.2,
+      "minimum": 2.4,
+      "maximum": 64.1,
+      "sample_count": 720
+    },
+    {
+      "resource_id": "invoice-thumbnail-generator",
+      "metric_name": "Invocations",
+      "timestamp": "2026-09-30T23:00:00+00:00",
+      "period": 86400,
+      "average": 42,
+      "minimum": 0,
+      "maximum": 180,
+      "sample_count": 30
+    }
+  ]
+}

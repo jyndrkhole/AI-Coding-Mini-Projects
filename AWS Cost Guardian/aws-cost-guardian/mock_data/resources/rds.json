@@ -1,0 +1,16 @@
+{
+  "resources": [
+    {
+      "resource_id": "db-demo-reporting",
+      "resource_type": "db_instance",
+      "service": "RDS",
+      "region": "us-east-1",
+      "name": "demo-reporting",
+      "state": "available",
+      "instance_type": "db.t3.medium",
+      "environment": "prod",
+      "tags": {"Name": "demo-reporting", "Environment": "prod"},
+      "metadata": {"engine": "mysql", "multi_az": false, "storage_gib": 100}
+    }
+  ]
+}
