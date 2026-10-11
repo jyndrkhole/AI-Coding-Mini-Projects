@@ -5,11 +5,20 @@ param(
   [Parameter(Mandatory = $true)][string]$PublicBaseUrl,
   [Parameter(Mandatory = $true)][string]$WebhookApiKey,
   [int]$Port = 3100,
+  [string]$PortalUsername = "admin",
+  [string]$PortalPassword = "",
   [string]$AppDir = (Get-Location).Path
 )
 
 $ErrorActionPreference = "Stop"
 Set-Location $AppDir
+
+if (-not $PortalPassword) {
+  $bytes = New-Object byte[] 16
+  [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+  $PortalPassword = ($bytes | ForEach-Object { $_.ToString("x2") }) -join ""
+  Write-Host "Generated PORTAL_PASSWORD (save this): $PortalPassword"
+}
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   throw "Node.js 20+ is required. Install LTS from https://nodejs.org then re-open PowerShell."
@@ -28,6 +37,9 @@ $base = $PublicBaseUrl.TrimEnd("/")
   "WEBHOOK_RESPONSE_DELAY_MS=0",
   "WEBHOOK_AUTH_ENABLED=true",
   "WEBHOOK_API_KEY=$WebhookApiKey",
+  "PORTAL_AUTH_ENABLED=true",
+  "PORTAL_USERNAME=$PortalUsername",
+  "PORTAL_PASSWORD=$PortalPassword",
   "CORS_ORIGIN=*",
   "BODY_LIMIT=1mb",
   "RATE_LIMIT_WINDOW_MS=60000",
@@ -49,7 +61,10 @@ Write-Host ""
 Write-Host "Client:  $ClientId"
 Write-Host "UI:      $base"
 Write-Host "Webhook: $base/webhooks/iri"
+Write-Host "Portal login: $PortalUsername / (see PORTAL_PASSWORD in .env)"
 Write-Host "Health:  $base/health"
 Write-Host ""
-Write-Host "Start now with: npm start"
-Write-Host "Then keep this window open, or install NSSM as a Windows service (see deploy/aws/README.md)."
+Write-Host "Start with PM2 (recommended on this EC2):"
+Write-Host "  pm2 start ecosystem.config.cjs --name PushNotifications_$ClientId"
+Write-Host "  pm2 save"
+Write-Host "Or: npm start"

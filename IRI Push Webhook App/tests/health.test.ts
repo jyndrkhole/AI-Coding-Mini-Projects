@@ -9,5 +9,6 @@ describe("GET /health", () => {
     expect(response.body.status).toBe("ok");
     expect(response.body.service).toBe("iri-push-notification-test-portal");
     expect(typeof response.body.timestamp).toBe("string");
+    expect(typeof response.body.portalAuthEnabled).toBe("boolean");
   });
 });

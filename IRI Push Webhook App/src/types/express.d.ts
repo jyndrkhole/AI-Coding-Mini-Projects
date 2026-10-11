@@ -5,6 +5,7 @@ declare global {
     interface Request {
       rawBody?: string;
       jsonParseError?: boolean;
+      portalUser?: string;
     }
   }
 }

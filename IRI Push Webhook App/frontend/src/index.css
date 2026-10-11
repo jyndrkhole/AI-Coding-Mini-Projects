@@ -159,17 +159,26 @@ textarea {
   justify-content: space-between;
   gap: 16px;
   align-items: center;
+  min-width: 0;
+}
+
+.topbar-title {
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .topbar h2 {
   margin: 0;
   font-size: 18px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .topbar-sub {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .status-row,
@@ -177,6 +186,18 @@ textarea {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.status-row {
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.status-row > strong {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .webhook-url {
@@ -189,6 +210,21 @@ textarea {
   padding: 8px 10px;
   font-family: var(--mono);
   font-size: 12px;
+  min-width: 0;
+  flex: 1 1 12rem;
+  max-width: 100%;
+}
+
+.webhook-url > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.status-row .btn,
+.status-row .theme-toggle {
+  flex-shrink: 0;
 }
 
 .content {
@@ -331,6 +367,11 @@ th {
 
 .btn:hover {
   background: var(--btn-bg-hover);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .btn.secondary {
@@ -557,4 +598,47 @@ textarea {
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .status-row {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .webhook-url {
+    flex: 1 1 16rem;
+  }
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--paper);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-card-head h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.login-card .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.login-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
 }

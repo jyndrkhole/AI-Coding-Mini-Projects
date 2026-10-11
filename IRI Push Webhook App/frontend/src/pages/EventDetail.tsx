@@ -21,6 +21,19 @@ export function EventDetailPage() {
       .catch((err: Error) => setError(err.message));
   }, [id]);
 
+  function downloadEvent() {
+    if (!event) {
+      return;
+    }
+    const blob = new Blob([JSON.stringify(event, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `webhook-event-${event.id}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (error) {
     return <div className="flash error">{error}</div>;
   }
@@ -32,9 +45,14 @@ export function EventDetailPage() {
     <div>
       <div className="panel-header">
         <h2>Event detail</h2>
-        <Link to="/events" className="btn secondary">
-          Back to events
-        </Link>
+        <div className="inline">
+          <button className="btn secondary" type="button" onClick={downloadEvent}>
+            Download JSON
+          </button>
+          <Link to="/events" className="btn secondary">
+            Back to events
+          </Link>
+        </div>
       </div>
       <div className="detail-grid">
         <section className="card panel">

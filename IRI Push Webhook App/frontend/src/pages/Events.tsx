@@ -12,6 +12,7 @@ export function EventsPage() {
   const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState<EventListQuery>({});
   const [message, setMessage] = useState("");
+  const [exporting, setExporting] = useState<"json" | "csv" | null>(null);
 
   const refresh = useCallback(async () => {
     const list = await api.listWebhookEvents(filters);
@@ -31,6 +32,23 @@ export function EventsPage() {
     void refresh();
   });
 
+  async function exportEvents(format: "json" | "csv") {
+    setExporting(format);
+    setMessage("");
+    try {
+      const result = await api.exportWebhookEvents(filters, format);
+      setMessage(
+        result.truncated
+          ? `Exported ${result.count} of ${result.total} events (limit is 5,000).`
+          : `Exported ${result.count} event${result.count === 1 ? "" : "s"} as ${format.toUpperCase()}.`
+      );
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Export failed");
+    } finally {
+      setExporting(null);
+    }
+  }
+
   async function clearAll() {
     if (!window.confirm("Delete all stored webhook events?")) {
       return;
@@ -45,11 +63,31 @@ export function EventsPage() {
       <div className="panel-header">
         <div>
           <h3>Webhook Events</h3>
-          <p className="help">{total} stored request{total === 1 ? "" : "s"}</p>
+          <p className="help">
+            {total} stored request{total === 1 ? "" : "s"}. Export includes every match for the current filters.
+          </p>
         </div>
-        <button className="btn danger" type="button" onClick={() => void clearAll()}>
-          Clear all
-        </button>
+        <div className="inline">
+          <button
+            className="btn secondary"
+            type="button"
+            disabled={total === 0 || exporting !== null}
+            onClick={() => void exportEvents("json")}
+          >
+            {exporting === "json" ? "Exporting…" : "Export JSON"}
+          </button>
+          <button
+            className="btn secondary"
+            type="button"
+            disabled={total === 0 || exporting !== null}
+            onClick={() => void exportEvents("csv")}
+          >
+            {exporting === "csv" ? "Exporting…" : "Export CSV"}
+          </button>
+          <button className="btn danger" type="button" onClick={() => void clearAll()}>
+            Clear all
+          </button>
+        </div>
       </div>
       {message ? <div className="flash">{message}</div> : null}
       <div className="filters">

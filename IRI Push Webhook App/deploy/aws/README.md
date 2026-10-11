@@ -159,10 +159,56 @@ npm start
 ```
 
 Health: `http://127.0.0.1:3100/health`  
-UI: `http://<EC2_PUBLIC_IP>:3100`  
-Webhook: `POST http://<EC2_PUBLIC_IP>:3100/webhooks/iri` with `X-API-Key`
+UI: `https://client-pushconsole.abc.com` (or `http://127.0.0.1:3100`)  
+Webhook: `POST https://client-pushconsole.abc.com/webhooks/iri` with `X-API-Key`
 
-To survive RDP logoff, run it as a Windows service with NSSM (https://nssm.cc/download).
+### Run with PM2 (same as the other apps on this EC2)
+
+Do **not** leave `npm start` in an RDP window. Add this portal as one more PM2 process, on a **free** port (default **3100**). Leave the existing AgentVizion / API processes alone.
+
+```powershell
+cd C:\path\to\IRIPushWebhook
+
+# stop a leftover console npm start if it is still bound to 3100
+netstat -ano | findstr ":3100"
+
+git pull
+npm run build --prefix frontend
+
+notepad .env
+```
+
+Set `PORT=3100` and `PUBLIC_BASE_URL=https://client-pushconsole.abc.com` (your real hostname).
+
+Name it like the other apps (`App_Client_Env`):
+
+```powershell
+pm2 start ecosystem.config.cjs --name PushNotifications_GAFG_Staging
+pm2 save
+pm2 status
+```
+
+`ecosystem.config.cjs` uses **fork** mode (same as your other Windows processes). `.env` is loaded by the app.
+
+Useful commands:
+
+```powershell
+pm2 restart PushNotifications_GAFG_Staging
+pm2 logs PushNotifications_GAFG_Staging
+pm2 stop PushNotifications_GAFG_Staging
+```
+
+After a code pull:
+
+```powershell
+git pull
+npm run build --prefix frontend
+pm2 restart PushNotifications_GAFG_Staging
+```
+
+If `https://client-pushconsole.abc.com` is served by `reverse_proxy_server` (or IIS), proxy `/` to `http://127.0.0.1:3100` and send `Host` plus `X-Forwarded-Proto: https`. That PM2 process is currently **stopped** in your list — start it only if that is how TLS/hostname routing is done.
+
+To survive reboot, keep using the same PM2 Windows startup you already use for the other apps (`pm2 save`). NSSM is not needed if PM2 is already the process manager.
 
 ### Pull this Windows update on the EC2
 

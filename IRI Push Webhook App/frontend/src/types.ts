@@ -60,6 +60,13 @@ export interface PortalConfig {
   webhookUrl: string;
   allowedResponseStatuses: number[];
   catalogVersion: string;
+  portalAuthEnabled?: boolean;
+}
+
+export interface PortalSession {
+  enabled: boolean;
+  authenticated: boolean;
+  username: string | null;
 }
 
 export interface EventListQuery {

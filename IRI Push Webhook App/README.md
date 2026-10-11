@@ -101,13 +101,18 @@ Then open http://localhost:3000
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `3000` | API port |
-| `PUBLIC_BASE_URL` | `http://localhost:3000` | URL shown in the UI / curl examples |
+| `PUBLIC_BASE_URL` | `http://localhost:3000` | Public origin for Copy URL (e.g. `https://client-pushconsole.abc.com`). Loopback values fall back to the hostname you used to open the portal. |
 | `DATABASE_PATH` | `./data/webhook-events.db` | SQLite file |
 | `IRI_VERSION` | `v1` | Catalogue folder under `config/iri/` |
 | `WEBHOOK_RESPONSE_STATUS` | `200` | Default simulated HTTP status |
 | `WEBHOOK_RESPONSE_DELAY_MS` | `0` | Default simulated delay |
 | `WEBHOOK_AUTH_ENABLED` | `false` | Require `X-API-Key` on `POST /webhooks/iri` |
 | `WEBHOOK_API_KEY` | empty | API key when auth is enabled |
+| `PORTAL_AUTH_ENABLED` | `false` | Require username/password to open the UI and `/api` |
+| `PORTAL_USERNAME` | `admin` | Portal login username |
+| `PORTAL_PASSWORD` | empty | Portal login password (required when portal auth is on) |
+| `PORTAL_SESSION_TTL_HOURS` | `1` | Portal cookie lifetime in hours (auto sign-out) |
+| `PORTAL_SESSION_TTL_MINUTES` | unset | Optional short override (wins over hours; useful for local tests) |
 | `CORS_ORIGIN` | `*` | CORS allow list (`*` or comma-separated origins) |
 | `BODY_LIMIT` | `1mb` | JSON body size limit |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Webhook rate-limit window |
@@ -147,6 +152,7 @@ Default success response:
 | `POST` | `/webhooks/iri` | Receive webhook |
 | `GET` | `/health` | Health check |
 | `GET` | `/api/webhook-events` | List stored requests |
+| `GET` | `/api/webhook-events/export` | Download matching requests as JSON or CSV (`?format=json` or `csv`, same filters as the list) |
 | `GET` | `/api/webhook-events/:id` | Event detail |
 | `DELETE` | `/api/webhook-events` | Clear stored requests |
 | `GET` | `/api/stats` | Dashboard counters |
@@ -213,7 +219,7 @@ Open http://localhost:5173 (dev) or http://localhost:3000 (production build).
 | Page | Use |
 |---|---|
 | Dashboard | Stats, recent events, online status, copy webhook URL |
-| Events | Filter by catalogue event type, policy, status, date, search |
+| Events | Filter by catalogue event type, policy, status, date, search. Export JSON or CSV of every match (up to 5,000) |
 | Event detail | Headers (secrets masked), payload JSON, response |
 | Send Test Notification | Load IRI sample payload, edit, send, copy curl |
 | Settings | Simulate 200/201/202/400/401/403/409/500/503 and delays |
@@ -251,7 +257,9 @@ Typical test:
 
 ## 13. Authentication
 
-Optional. Enable with:
+Two separate gates:
+
+**Webhook POSTs** (`POST /webhooks/iri`) use an API key:
 
 ```bash
 WEBHOOK_AUTH_ENABLED=true
@@ -260,7 +268,17 @@ WEBHOOK_API_KEY=test-token
 
 Send `X-API-Key: test-token`. Authorization and API key headers are masked in logs and the UI (`Bearer ********` / `********`).
 
-Internal `/api/*` routes are unauthenticated; this is an internal tool.
+**Portal UI and `/api/*`** use a shared login (cookie session, default **1 hour**). IRI backends do not use this.
+
+```bash
+PORTAL_AUTH_ENABLED=true
+PORTAL_USERNAME=admin
+PORTAL_PASSWORD=<choose-a-strong-password>
+PORTAL_SESSION_TTL_HOURS=1
+```
+
+After the TTL, the cookie is rejected and the UI returns to Sign in. Webhook POSTs are unchanged.
+`GET /health` stays open for PM2. `/webhooks/iri` never uses the portal password.
 
 ## 14. Docker deployment
 

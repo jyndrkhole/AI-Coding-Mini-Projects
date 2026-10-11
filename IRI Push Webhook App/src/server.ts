@@ -1,5 +1,6 @@
 import { createApp } from "./app.ts";
-import { env } from "./config/env.ts";
+import { env, loadedEnvFiles } from "./config/env.ts";
+import { isPortalAuthEnabled } from "./config/portalSession.ts";
 import { initDb } from "./database/db.ts";
 
 initDb(env.databasePath);
@@ -12,4 +13,10 @@ app.listen(env.port, "0.0.0.0", () => {
   console.log(`Webhook:  POST ${base}/webhooks/iri`);
   console.log(`Health:   GET  ${base}/health`);
   console.log(`Swagger:  GET  ${base}/api-docs`);
+  console.log(`Portal login: ${isPortalAuthEnabled() ? "enabled" : "disabled"}`);
+  if (loadedEnvFiles.length > 0) {
+    console.log(`Env file: ${loadedEnvFiles.join(", ")}`);
+  } else {
+    console.log("Env file: none found next to the app or in the process folder");
+  }
 });

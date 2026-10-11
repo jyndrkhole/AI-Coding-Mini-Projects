@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { JsonViewer } from "../components/JsonViewer";
 import { api } from "../services/api";
 import type { CatalogEvent, PortalConfig } from "../types";
+import { advertisedWebhookUrl } from "../utils/webhookUrl";
 
 export function SendTestPage() {
   const [catalog, setCatalog] = useState<CatalogEvent[]>([]);
@@ -84,7 +85,7 @@ export function SendTestPage() {
   }
 
   const curl = useMemo(() => {
-    const url = config?.webhookUrl ?? "http://localhost:3000/webhooks/iri";
+    const url = advertisedWebhookUrl(config);
     let pretty = payloadText;
     try {
       pretty = JSON.stringify(parsedPayload());

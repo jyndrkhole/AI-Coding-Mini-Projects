@@ -90,7 +90,10 @@ export function getWebhookEventById(id: string): WebhookEvent | undefined {
   return row ? mapWebhookEvent(row) : undefined;
 }
 
-export function listWebhookEvents(filters: EventListFilters = {}): EventListResult {
+export function listWebhookEvents(
+  filters: EventListFilters = {},
+  options: { maxLimit?: number; defaultLimit?: number } = {}
+): EventListResult {
   const where: string[] = [];
   const params: unknown[] = [];
 
@@ -121,7 +124,9 @@ export function listWebhookEvents(filters: EventListFilters = {}): EventListResu
   }
 
   const whereSql = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
-  const limit = Math.min(Math.max(filters.limit ?? 50, 1), 200);
+  const cap = options.maxLimit ?? 200;
+  const fallbackLimit = options.defaultLimit ?? 50;
+  const limit = Math.min(Math.max(filters.limit ?? fallbackLimit, 1), cap);
   const offset = Math.max(filters.offset ?? 0, 0);
 
   const totalRow = getDb()

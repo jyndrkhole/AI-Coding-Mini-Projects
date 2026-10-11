@@ -30,4 +30,27 @@ describe("internal APIs", () => {
     expect(config.body.responseStatus).toBe(200);
     expect(config.body.allowedResponseStatuses).toContain(503);
   });
+
+  it("advertises webhook URL from the public Host used to reach the portal", async () => {
+    const app = createTestApp();
+    const config = await request(app)
+      .get("/api/config")
+      .set("Host", "client-pushconsole.abc.com")
+      .set("X-Forwarded-Proto", "https")
+      .expect(200);
+    expect(config.body.publicBaseUrl).toBe("https://client-pushconsole.abc.com");
+    expect(config.body.webhookUrl).toBe("https://client-pushconsole.abc.com/webhooks/iri");
+  });
+
+  it("uses PUBLIC_BASE_URL when it is a non-loopback origin", async () => {
+    const previous = process.env.PUBLIC_BASE_URL;
+    process.env.PUBLIC_BASE_URL = "https://client-pushconsole.abc.com";
+    try {
+      const app = createTestApp();
+      const config = await request(app).get("/api/config").set("Host", "127.0.0.1:3100").expect(200);
+      expect(config.body.webhookUrl).toBe("https://client-pushconsole.abc.com/webhooks/iri");
+    } finally {
+      process.env.PUBLIC_BASE_URL = previous;
+    }
+  });
 });

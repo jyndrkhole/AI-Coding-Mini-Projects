@@ -98,6 +98,27 @@ export const openApiSpec = {
         responses: { "200": { description: "Events deleted" } }
       }
     },
+    "/api/webhook-events/export": {
+      get: {
+        tags: ["Internal API"],
+        summary: "Download stored webhook events as JSON or CSV",
+        description:
+          "Uses the same filters as the event list. JSON includes full stored records (headers already masked). CSV is a summary plus the request payload. Limited to 5000 matching events.",
+        parameters: [
+          { name: "format", in: "query", schema: { type: "string", enum: ["json", "csv"], default: "json" } },
+          { name: "eventType", in: "query", schema: { type: "string" } },
+          { name: "policyNumber", in: "query", schema: { type: "string" } },
+          { name: "status", in: "query", schema: { type: "integer" } },
+          { name: "from", in: "query", schema: { type: "string" } },
+          { name: "to", in: "query", schema: { type: "string" } },
+          { name: "search", in: "query", schema: { type: "string" } }
+        ],
+        responses: {
+          "200": { description: "File download" },
+          "400": { description: "Unsupported format" }
+        }
+      }
+    },
     "/api/webhook-events/{id}": {
       get: {
         tags: ["Internal API"],

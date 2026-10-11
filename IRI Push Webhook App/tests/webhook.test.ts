@@ -84,6 +84,33 @@ describe("POST /webhooks/iri", () => {
     await request(app).get("/api/webhook-events/does-not-exist").expect(404);
   });
 
+  it("exports matching events as JSON and CSV", async () => {
+    const app = createTestApp();
+    await request(app).post("/webhooks/iri").send(samplePayload).expect(200);
+    await request(app)
+      .post("/webhooks/iri")
+      .send({ eventType: "applicationStatus.v9.brandNewEvent", policyNumber: "FUTURE-001" })
+      .expect(200);
+
+    const json = await request(app)
+      .get("/api/webhook-events/export")
+      .query({ format: "json", eventType: samplePayload.eventType })
+      .expect(200);
+    expect(json.headers["content-disposition"]).toMatch(/webhook-events-.*\.json/);
+    expect(json.headers["x-export-count"]).toBe("1");
+    expect(json.body.truncated).toBe(false);
+    expect(json.body.events).toHaveLength(1);
+    expect(json.body.events[0].payload.policyNumber).toBe(samplePayload.policyNumber);
+
+    const csv = await request(app).get("/api/webhook-events/export").query({ format: "csv" }).expect(200);
+    expect(csv.headers["content-type"]).toMatch(/text\/csv/);
+    expect(csv.text).toContain("policyNumber");
+    expect(csv.text).toContain(samplePayload.policyNumber);
+    expect(csv.text).toContain("FUTURE-001");
+
+    await request(app).get("/api/webhook-events/export").query({ format: "xml" }).expect(400);
+  });
+
   it("deletes all stored events", async () => {
     const app = createTestApp();
     await request(app).post("/webhooks/iri").send(samplePayload).expect(200);

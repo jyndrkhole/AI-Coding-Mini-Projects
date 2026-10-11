@@ -1,15 +1,22 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api } from "../services/api";
-import type { PortalConfig } from "../types";
+import type { PortalConfig, PortalSession } from "../types";
 import { APP_NAME } from "../constants";
+import { advertisedWebhookUrl } from "../utils/webhookUrl";
 import { ThemeToggle } from "./ThemeToggle";
 
 function copyText(value: string) {
   void navigator.clipboard.writeText(value);
 }
 
-export function Layout() {
+export function Layout({
+  portalSession,
+  onLoggedOut
+}: {
+  portalSession: PortalSession;
+  onLoggedOut: (session: PortalSession) => void;
+}) {
   const [online, setOnline] = useState(false);
   const [config, setConfig] = useState<PortalConfig | null>(null);
 
@@ -28,7 +35,7 @@ export function Layout() {
     return () => clearInterval(timer);
   }, []);
 
-  const webhookUrl = config?.webhookUrl ?? "http://localhost:3000/webhooks/iri";
+  const webhookUrl = advertisedWebhookUrl(config);
 
   return (
     <div className="app-shell">
@@ -49,7 +56,7 @@ export function Layout() {
       </aside>
       <div className="main">
         <header className="topbar">
-          <div>
+          <div className="topbar-title">
             <h2>{APP_NAME}</h2>
             <p className="topbar-sub">Test webhook receiver</p>
           </div>
@@ -57,12 +64,23 @@ export function Layout() {
             <span className={`dot ${online ? "online" : "offline"}`} />
             <strong>{online ? "Webhook Receiver Online" : "Webhook Receiver Offline"}</strong>
             <div className="webhook-url">
-              <span>POST {webhookUrl}</span>
+              <span title={webhookUrl}>POST {webhookUrl}</span>
               <button className="btn secondary" type="button" onClick={() => copyText(webhookUrl)}>
                 Copy URL
               </button>
             </div>
             <ThemeToggle />
+            {portalSession.enabled ? (
+              <button
+                className="btn secondary"
+                type="button"
+                onClick={() => {
+                  void api.logout().then(onLoggedOut);
+                }}
+              >
+                Sign out
+              </button>
+            ) : null}
           </div>
         </header>
         <main className="content">

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Push Notifications Test Portal">
+  <rect width="32" height="32" rx="8" fill="#16324f"/>
+  <path fill="#14b8a6" d="M16 6.8c-3.6 0-6.5 2.6-6.5 5.8v3.6L7.2 19c-.4.5 0 1.2.6 1.2h16.4c.6 0 1-.7.6-1.2l-2.3-2.8v-3.6c0-3.2-2.9-5.8-6.5-5.8zm-2.3 16.4A2.4 2.4 0 0 0 16 25.6a2.4 2.4 0 0 0 2.3-2.4z"/>
+  <circle cx="22.2" cy="9.8" r="3.5" fill="#5eead4"/>
+</svg>

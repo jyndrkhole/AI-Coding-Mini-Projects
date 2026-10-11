@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../services/api";
 import type { PortalConfig } from "../types";
+import { advertisedWebhookUrl } from "../utils/webhookUrl";
 
 const DELAYS = [0, 500, 1000, 3000];
 
@@ -85,11 +86,13 @@ export function SettingsPage() {
       <h3>Receiver configuration</h3>
       <dl className="kv" style={{ marginTop: 16 }}>
         <dt>Webhook URL</dt>
-        <dd className="mono">{config.webhookUrl}</dd>
+        <dd className="mono">{advertisedWebhookUrl(config)}</dd>
         <dt>IRI catalogue</dt>
         <dd>{config.catalogVersion}</dd>
-        <dt>Authentication</dt>
+        <dt>Webhook API key</dt>
         <dd>{config.authEnabled ? "Enabled (X-API-Key)" : "Disabled"}</dd>
+        <dt>Portal login</dt>
+        <dd>{config.portalAuthEnabled ? "Enabled" : "Disabled"}</dd>
         <dt>Current status</dt>
         <dd>{config.responseStatus}</dd>
         <dt>Current delay</dt>
