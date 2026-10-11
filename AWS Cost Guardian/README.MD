@@ -460,7 +460,7 @@ S3:
 s3:ListAllMyBuckets
 s3:GetBucketLocation
 s3:GetBucketTagging
-s3:GetBucketLifecycleConfiguration
+s3:GetLifecycleConfiguration
 s3:GetBucketVersioning
 
 Lambda:

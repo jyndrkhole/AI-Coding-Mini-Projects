@@ -1,10 +1,10 @@
 import { Alert, Box, Button, Card, CardContent, Skeleton, Stack, Typography } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { categoryChartHeight, CategoryTick, useChartColors, zeroValueAxis } from "../components/chartLayout";
+import { categoryChartHeight, CategoryTick, useChartColors, useChartTooltip, useValueTones, zeroValueAxis } from "../components/chartLayout";
 import { KpiCard } from "../components/KpiCard";
-import { RecommendationCard } from "../components/RecommendationCard";
 import { SafeSavingsColumn } from "../components/SafeSavingsColumn";
 import { apiGet } from "../services/api";
 import type { CostSummary, DailyCosts, OptimizationScore, Recommendation, RegionCosts, Savings, ServiceCosts } from "../types";
@@ -13,23 +13,27 @@ import { formatCompactMoney, formatMoney, formatPercent, formatSignedMoney } fro
 const groups = [
   {
     id: "safe",
-    title: "SAFE SAVINGS",
+    title: "Safe savings",
+    stance: "Quote",
     guidance: "One conversation per kind of waste. Quote a saving only when a card shows an amount.",
   },
   {
     id: "review",
-    title: "REVIEW REQUIRED",
+    title: "Review required",
+    stance: "Investigate",
     guidance: "Largest compute and storage lines. Collect utilization, then price one change. No saving is quoted here.",
   },
   {
     id: "architecture",
-    title: "ARCHITECTURE OPPORTUNITIES",
+    title: "Architecture opportunities",
+    stance: "Ceiling",
     guidance: "Standing hourly charges. The amount is a ceiling if the design changes after a replacement exists. Nothing was removed.",
   },
 ] as const;
 
 export function DashboardPage() {
   const chart = useChartColors();
+  const tooltip = useChartTooltip();
   const queryClient = useQueryClient();
   const summary = useQuery({ queryKey: ["costs", "summary"], queryFn: () => apiGet<CostSummary>("/api/costs/summary") });
   const daily = useQuery({ queryKey: ["costs", "daily"], queryFn: () => apiGet<DailyCosts>("/api/costs/daily") });
@@ -160,7 +164,7 @@ export function DashboardPage() {
                   tick={{ fontSize: 12 }}
                   {...zeroValueAxis(daily.data.points.map((point) => point.amount))}
                 />
-                <Tooltip formatter={(value) => formatMoney(Number(value ?? 0), daily.data.currency)} />
+                <Tooltip {...tooltip} formatter={(value) => formatMoney(Number(value ?? 0), daily.data.currency)} />
                 <Area type="monotone" dataKey="amount" stroke={chart.primary} fill={chart.area} isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
@@ -184,6 +188,7 @@ export function DashboardPage() {
                     tick={<CategoryTick />}
                   />
                   <Tooltip
+                    {...tooltip}
                     formatter={(value) => formatMoney(Number(value ?? 0), services.data.currency)}
                     labelFormatter={(label) => String(label)}
                   />
@@ -205,7 +210,7 @@ export function DashboardPage() {
                     tick={{ fontSize: 12 }}
                     {...zeroValueAxis(regions.data.regions.map((row) => row.current))}
                   />
-                  <Tooltip formatter={(value) => formatMoney(Number(value ?? 0), regions.data.currency)} />
+                  <Tooltip {...tooltip} formatter={(value) => formatMoney(Number(value ?? 0), regions.data.currency)} />
                   <Bar dataKey="current" fill={chart.secondary} isAnimationActive={false} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -222,27 +227,24 @@ export function DashboardPage() {
       ) : null}
 
       {recommendations.data && recommendations.data.recommendations.length > 0 ? (
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "repeat(3, 1fr)" }, alignItems: "start" }}>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "repeat(3, minmax(0, 1fr))" }, alignItems: "start" }}>
           {groups.map((group) => {
             const items = recommendations.data.recommendations.filter((item) => item.category === group.id);
             return (
               <Stack key={group.id} spacing={1.5}>
-                <Box>
-                  <Typography variant="h6">{group.title}</Typography>
-                  <Typography variant="body2" color="text.secondary">{group.guidance}</Typography>
-                </Box>
+                <GroupHeader group={group} count={items.length} />
                 {items.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     {group.id === "safe"
                       ? "Nothing is ready to quote. No low-risk cleanup was stored, and idle capacity was not measured."
                       : "None in this group."}
                   </Typography>
-                ) : group.id === "safe" ? (
-                  <SafeSavingsColumn items={items} currency={recommendations.data.currency} />
                 ) : (
-                  items.map((item) => (
-                    <RecommendationCard key={item.id} item={item} currency={recommendations.data.currency} />
-                  ))
+                  <SafeSavingsColumn
+                    items={items}
+                    currency={recommendations.data.currency}
+                    mode={group.id === "architecture" ? "ceiling" : group.id === "review" ? "investigate" : "quote"}
+                  />
                 )}
               </Stack>
             );
@@ -250,6 +252,34 @@ export function DashboardPage() {
         </Box>
       ) : null}
     </Stack>
+  );
+}
+
+function GroupHeader({ group, count }: { group: (typeof groups)[number]; count: number }) {
+  const theme = useTheme();
+  const tones = useValueTones();
+  const accent =
+    group.id === "safe" ? tones.savings : group.id === "review" ? tones.increase : theme.palette.primary.main;
+  const countLabel = count === 0 ? "None stored" : group.id === "safe" ? `${count} findings` : `${count} items`;
+  return (
+    <Card sx={{ borderTop: "3px solid", borderTopColor: accent, minHeight: { lg: 148 } }}>
+      <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={1}>
+          <Typography variant="overline" sx={{ color: accent, letterSpacing: "0.12em", lineHeight: 1.4 }}>
+            {group.stance}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {countLabel}
+          </Typography>
+        </Stack>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, mt: 0.25 }}>
+          {group.title}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          {group.guidance}
+        </Typography>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -262,6 +292,7 @@ function MonthChangeTooltip({
   payload?: { payload?: CostSummary["months"][number] }[];
   currency: string;
 }) {
+  const tones = useValueTones();
   const month = active ? payload?.[0]?.payload : undefined;
   if (!month) return null;
   return (
@@ -293,7 +324,7 @@ function MonthChangeTooltip({
               </Typography>
             ) : null}
           </Box>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: item.change > 0 ? "#9a3412" : "secondary.main", whiteSpace: "nowrap" }}>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: item.change > 0 ? tones.increase : tones.savings, whiteSpace: "nowrap" }}>
             {formatSignedMoney(item.change, currency)}
           </Typography>
         </Stack>

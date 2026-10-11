@@ -42,9 +42,12 @@ def collect_inventory(clients: dict) -> tuple[list[dict], list[dict]]:
     return resources, problems
 
 
+def _error_code(exc: ClientError) -> str:
+    return exc.response.get("Error", {}).get("Code", "")
+
+
 def _denied(exc: ClientError) -> bool:
-    code = exc.response.get("Error", {}).get("Code", "")
-    return code in {"AccessDenied", "AccessDeniedException", "UnauthorizedOperation"}
+    return _error_code(exc) in {"AccessDenied", "AccessDeniedException", "UnauthorizedOperation"}
 
 
 def _call(client, method: str, **kwargs):
@@ -54,9 +57,15 @@ def _call(client, method: str, **kwargs):
     try:
         return function(**kwargs), None
     except ClientError as exc:
-        logger.exception("AWS %s failed", method)
+        code = _error_code(exc)
+        if code == "NoSuchTagSet":
+            return {"TagSet": []}, None
+        if code == "NoSuchLifecycleConfiguration":
+            return None, None
         if _denied(exc):
+            logger.warning("AWS %s denied", method)
             return None, f"Missing IAM permission for {method}."
+        logger.exception("AWS %s failed", method)
         return None, "Inventory unavailable."
     except Exception:
         logger.exception("AWS %s failed", method)

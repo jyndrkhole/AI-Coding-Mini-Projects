@@ -18,7 +18,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { categoryChartHeight, CategoryTick, useChartColors, zeroValueAxis } from "../components/chartLayout";
+import { categoryChartHeight, CategoryTick, useChartColors, useChartTooltip, zeroValueAxis } from "../components/chartLayout";
 import { apiGet, apiPost } from "../services/api";
 import type { CostExplorer, ScanResult } from "../types";
 import { formatCompactMoney, formatPercent } from "../utils/format";
@@ -44,6 +44,7 @@ function formatSignedAmount(value: number, currency: string): string {
 
 export function CostExplorerPage() {
   const chart = useChartColors();
+  const tooltip = useChartTooltip();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Filters>(emptyFilters);
   const [applied, setApplied] = useState<Filters>(emptyFilters);
@@ -162,7 +163,7 @@ export function CostExplorerPage() {
                     tick={{ fontSize: 12 }}
                     {...zeroValueAxis(data.daily.map((point) => point.amount))}
                   />
-                  <Tooltip formatter={(value) => formatAmount(Number(value ?? 0), data.currency)} />
+                  <Tooltip {...tooltip} formatter={(value) => formatAmount(Number(value ?? 0), data.currency)} />
                   <Bar dataKey="amount" fill={chart.primary} isAnimationActive={false} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -178,7 +179,7 @@ export function CostExplorerPage() {
                     tick={{ fontSize: 12 }}
                     {...zeroValueAxis(data.monthly.map((point) => point.amount))}
                   />
-                  <Tooltip formatter={(value) => formatAmount(Number(value ?? 0), data.currency)} />
+                  <Tooltip {...tooltip} formatter={(value) => formatAmount(Number(value ?? 0), data.currency)} />
                   <Bar dataKey="amount" fill={chart.secondary} isAnimationActive={false} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -203,6 +204,7 @@ export function CostExplorerPage() {
                     tick={<CategoryTick />}
                   />
                   <Tooltip
+                    {...tooltip}
                     formatter={(value) => formatAmount(Number(value ?? 0), data.currency)}
                     labelFormatter={(label) => String(label)}
                   />
@@ -224,7 +226,7 @@ export function CostExplorerPage() {
                     tick={{ fontSize: 12 }}
                     {...zeroValueAxis(data.regions.map((row) => row.current))}
                   />
-                  <Tooltip formatter={(value) => formatAmount(Number(value ?? 0), data.currency)} />
+                  <Tooltip {...tooltip} formatter={(value) => formatAmount(Number(value ?? 0), data.currency)} />
                   <Bar dataKey="current" fill={chart.secondary} isAnimationActive={false} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

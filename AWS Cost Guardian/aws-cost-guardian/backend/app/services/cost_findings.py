@@ -281,14 +281,18 @@ def build_cost_findings(
         if found is None:
             continue
         action_type, title, service, brief, ask, steps = found
+        if "LoadBalancerUsage" in usage_type and action_type == "REVIEW":
+            action_type = "CLEANUP"
         matched.append((amount, usage_type, action_type, title, service or service_name, brief, ask, steps))
     matched.sort(key=lambda item: item[0], reverse=True)
     architecture = [item for item in matched if item[2] == "ARCHITECTURE"]
+    cleanup = [item for item in matched if item[2] == "CLEANUP"]
     review = [item for item in matched if item[2] == "REVIEW"][:REVIEW_LIMIT]
-    selected = architecture + review
+    selected = architecture + cleanup + review
     findings = []
     for index, (amount, usage_type, action_type, title, service, brief, ask, steps) in enumerate(selected, start=1):
         estimated = amount if action_type == "ARCHITECTURE" else as_decimal(0)
+        risk = "LOW" if action_type == "CLEANUP" else "MEDIUM"
         values = (period_label, amount, currency, usage_type)
         findings.append(
             {
@@ -297,13 +301,13 @@ def build_cost_findings(
                 "title": title,
                 "description": f"{period_label} unblended cost for {usage_type}.",
                 "service": service,
-                "category": recommendation_category(action_type, "MEDIUM"),
+                "category": recommendation_category(action_type, risk),
                 "current_monthly_cost": float(amount),
                 "estimated_monthly_savings": float(estimated),
                 "estimated_annual_savings": float(estimated * 12),
                 "confidence": "LOW",
                 "data_quality": "COST_ONLY",
-                "risk_level": "MEDIUM",
+                "risk_level": risk,
                 "priority": index,
                 "action_type": action_type,
                 "source": "COST_EXPLORER",

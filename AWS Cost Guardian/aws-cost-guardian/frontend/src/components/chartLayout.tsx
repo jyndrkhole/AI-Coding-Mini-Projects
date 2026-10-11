@@ -10,6 +10,30 @@ export function useChartColors() {
   };
 }
 
+export function useChartTooltip() {
+  const theme = useTheme();
+  const text = theme.palette.text.primary;
+  return {
+    contentStyle: {
+      backgroundColor: theme.palette.background.paper,
+      border: `1px solid ${theme.palette.divider}`,
+      borderRadius: 8,
+      color: text,
+    },
+    labelStyle: { color: text, fontWeight: 600 },
+    itemStyle: { color: text },
+  };
+}
+
+export function useValueTones() {
+  const theme = useTheme();
+  return {
+    neutral: theme.palette.text.primary,
+    savings: theme.palette.secondary.main,
+    increase: theme.palette.mode === "dark" ? "#f4b183" : "#9a3412",
+  };
+}
+
 export function categoryChartHeight(count: number): number {
   return Math.max(220, count * 40);
 }

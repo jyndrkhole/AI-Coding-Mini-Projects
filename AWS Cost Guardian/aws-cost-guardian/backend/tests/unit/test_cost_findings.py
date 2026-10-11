@@ -31,3 +31,18 @@ def test_architecture_findings_use_the_charge_as_an_upper_bound() -> None:
     assert "no saving is quoted" in ec2["client_brief"].lower()
     assert any("14 days" in step for step in ec2["next_steps"])
     assert "BoxUsage:t3.micro" not in by_usage
+
+
+def test_load_balancer_cleanup_stays_in_safe_savings_past_the_review_cap() -> None:
+    rows = [("EC2", f"BoxUsage:t3.{index}", Decimal("900") - index) for index in range(8)]
+    rows.append(("ELB", "LoadBalancerUsage", Decimal("210.56")))
+    rows.append(("EBS", "EBS:SnapshotUsage", Decimal("98.02")))
+    findings = build_cost_findings(rows, "September 2026")
+    by_usage = {item["resource_id"]: item for item in findings}
+    balancer = by_usage["LoadBalancerUsage"]
+    assert balancer["category"] == "safe"
+    assert balancer["action_type"] == "CLEANUP"
+    assert balancer["estimated_monthly_savings"] == 0
+    assert balancer["title"] == "Load balancer hours"
+    assert "still receive traffic" in balancer["client_ask"].lower()
+    assert "EBS:SnapshotUsage" not in by_usage

@@ -14,8 +14,8 @@ def complete(system: str, user: str) -> str | None:
     try:
         if provider == "ollama":
             return _ollama(settings.ollama_base_url, settings.ollama_model, system, user)
-        if provider == "groq":
-            return _groq(settings.groq_api_key, settings.groq_model, system, user)
+        if provider in {"groq", "xai"}:
+            return _groq(provider, settings.groq_api_key, settings.groq_model, system, user)
         if provider == "bedrock":
             return _bedrock(settings.aws_bedrock_region, settings.aws_bedrock_model_id, system, user)
     except Exception:
@@ -44,20 +44,35 @@ def _ollama(base_url: str, model: str, system: str, user: str) -> str | None:
     return content.strip() if isinstance(content, str) and content.strip() else None
 
 
-def _groq(api_key: str, model: str, system: str, user: str) -> str | None:
-    if not api_key.strip() or not model.strip():
+def _groq(provider: str, api_key: str, model: str, system: str, user: str) -> str | None:
+    key = api_key.strip()
+    if not key:
         return None
+    chosen = model.strip()
+    if key.startswith("xai-") or provider == "xai":
+        url = "https://api.x.ai/v1/chat/completions"
+        chosen = chosen or "grok-4.7"
+        timeout = 90
+    else:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        timeout = 30
+    if not chosen:
+        return None
+    payload = {
+        "model": chosen,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    }
+    if "gpt-oss" in chosen:
+        payload["max_tokens"] = 800
+        payload["reasoning_effort"] = "low"
     response = httpx.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {api_key}"},
-        json={
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-        },
-        timeout=30,
+        url,
+        headers={"Authorization": f"Bearer {key}"},
+        json=payload,
+        timeout=timeout,
     )
     response.raise_for_status()
     content = response.json()["choices"][0]["message"]["content"]

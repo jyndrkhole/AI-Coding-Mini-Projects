@@ -6,6 +6,13 @@ import { formatMoney } from "../utils/format";
 
 const PREVIEW = 6;
 
+function riskChipColor(level: string): "success" | "warning" | "error" | "default" {
+  if (level === "LOW") return "success";
+  if (level === "MEDIUM") return "warning";
+  if (level === "HIGH") return "error";
+  return "default";
+}
+
 const actionOrder: Record<string, number> = {
   CLEANUP: 0,
   RELEASE: 1,
@@ -52,103 +59,142 @@ function sameFacts(items: Recommendation[]): boolean {
   return items.every((item) => JSON.stringify(item.next_steps ?? []) === first);
 }
 
-export function SafeSavingsColumn({ items, currency }: { items: Recommendation[]; currency: string }) {
+export function SafeSavingsColumn({
+  items,
+  currency,
+  mode = "quote",
+}: {
+  items: Recommendation[];
+  currency: string;
+  mode?: "quote" | "investigate" | "ceiling";
+}) {
   const conversations = conversationsFor(items);
-  const quoted = conversations.filter((conversation) => conversation.quoted);
-  const summary =
-    quoted.length === 0
-      ? `${conversations.length} conversations, ${items.length} findings. No saving in this column is estimated.`
-      : `${quoted.length} of ${conversations.length} conversations have a quoted saving. Leave the rest as “Not estimated.”`;
-
   return (
     <Stack spacing={1.5}>
-      <Typography variant="body2" color="text.secondary">
-        {summary}
-      </Typography>
       {conversations.map((conversation) => (
-        <ConversationCard key={`${conversation.title}-${conversation.quoted}`} conversation={conversation} currency={currency} />
+        <ConversationCard
+          key={`${conversation.title}-${conversation.quoted}`}
+          conversation={conversation}
+          currency={currency}
+          mode={mode}
+        />
       ))}
     </Stack>
   );
 }
 
-function ConversationCard({ conversation, currency }: { conversation: Conversation; currency: string }) {
-  const [expanded, setExpanded] = useState(false);
+function ConversationCard({
+  conversation,
+  currency,
+  mode,
+}: {
+  conversation: Conversation;
+  currency: string;
+  mode: "quote" | "investigate" | "ceiling";
+}) {
+  const [checksOpen, setChecksOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
   const { items } = conversation;
   const first = items[0];
   const shared = sameFacts(items);
-  const visible = expanded ? items : items.slice(0, PREVIEW);
+  const steps = shared ? (first.next_steps ?? []) : [];
+  const visible = resourcesOpen ? items : items.slice(0, PREVIEW);
   const hidden = items.length - visible.length;
-  const quotedTotal = items.reduce((sum, item) => sum + item.estimated_monthly_savings, 0);
+  const bill = items.reduce((sum, item) => sum + item.current_monthly_cost, 0);
+  const quotedAmount = items.reduce((sum, item) => sum + item.estimated_monthly_savings, 0);
+  const risks = [...new Set(items.map((item) => item.risk_level))];
+  const hasAmount = mode === "ceiling" || conversation.quoted;
+  const savingLabel = mode === "ceiling" ? "Ceiling" : "Saving";
+  const savingValue = hasAmount ? `${formatMoney(quotedAmount, currency)}/month` : "Not estimated";
 
   return (
     <Card>
-      <CardContent>
+      <CardContent sx={{ py: 1.75, "&:last-child": { pb: 1.75 } }}>
         <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="flex-start">
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             {conversation.title}
           </Typography>
-          <Chip size="small" label={conversation.service} variant="outlined" />
+          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" justifyContent="flex-end">
+            {risks.map((risk) => (
+              <Chip key={risk} size="small" color={riskChipColor(risk)} label={`Risk ${risk}`} />
+            ))}
+            <Chip size="small" label={conversation.service} variant="outlined" />
+          </Stack>
         </Stack>
-        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
-          <Chip size="small" variant="outlined" label={items.length === 1 ? "1 finding" : `${items.length} findings`} />
-          <Chip
-            size="small"
-            variant={conversation.quoted ? "filled" : "outlined"}
-            color={conversation.quoted ? "success" : "default"}
-            label={conversation.quoted ? `${formatMoney(quotedTotal, currency)}/month` : "Not estimated"}
-          />
-        </Stack>
-        {first.client_brief ? (
-          <Box sx={{ mt: 1.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              Tell the client
-            </Typography>
-            <Typography variant="body2">{first.client_brief}</Typography>
-          </Box>
-        ) : null}
-        {first.client_ask ? (
-          <Box sx={{ mt: 1.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              Ask the client
-            </Typography>
-            <Typography variant="body2">{first.client_ask}</Typography>
-          </Box>
-        ) : null}
-        <Box sx={{ mt: 1.5 }}>
-          <Typography variant="caption" color="text.secondary">
-            What you found
-          </Typography>
-          {shared ? (
-            <Box component="ol" sx={{ m: 0, pl: 2.25 }}>
-              {(first.next_steps ?? []).map((step) => (
-                <Typography key={step} component="li" variant="body2" sx={{ mt: 0.5 }}>
-                  {step}
-                </Typography>
-              ))}
+        <Stack direction="row" spacing={2.5} sx={{ mt: 1.25 }}>
+          {bill > 0 ? (
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                {mode === "ceiling" ? "Last full month" : "On the bill"}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                {formatMoney(bill, currency)}
+              </Typography>
             </Box>
           ) : null}
-          <Stack spacing={0.75} sx={{ mt: shared ? 1 : 0.5 }}>
-            {visible.map((item) => (
-              <Typography key={item.id} variant="body2">
-                <Link to={`/recommendations/${item.id}`}>{item.resource_id ?? item.title}</Link>
-                {!shared && item.next_steps && item.next_steps.length > 0 ? (
-                  <Box component="span" sx={{ color: "text.secondary" }}>{` — ${item.next_steps.join(" · ")}`}</Box>
-                ) : null}
-              </Typography>
-            ))}
-          </Stack>
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              {savingLabel}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 700, color: hasAmount ? "text.primary" : "text.secondary" }}
+            >
+              {savingValue}
+            </Typography>
+          </Box>
+          <Box sx={{ ml: "auto", textAlign: "right" }}>
+            <Typography variant="caption" color="text.secondary">
+              {items.length === 1 ? "1 finding" : `${items.length} findings`}
+            </Typography>
+          </Box>
+        </Stack>
+        {first.client_brief ? (
+          <Typography variant="body2" sx={{ mt: 1.25 }}>
+            {first.client_brief}
+          </Typography>
+        ) : null}
+        {first.client_ask ? (
+          <Typography variant="body2" sx={{ mt: 1, pl: 1.25, borderLeft: 2, borderColor: "divider" }}>
+            {first.client_ask}
+          </Typography>
+        ) : null}
+        {steps.length > 0 ? (
+          <Box sx={{ mt: 0.75 }}>
+            <Button size="small" sx={{ px: 0 }} onClick={() => setChecksOpen((open) => !open)}>
+              {checksOpen ? "Hide the checks" : `Show ${steps.length} ${steps.length === 1 ? "check" : "checks"}`}
+            </Button>
+            {checksOpen ? (
+              <Box component="ol" sx={{ m: 0, pl: 2.25 }}>
+                {steps.map((step) => (
+                  <Typography key={step} component="li" variant="body2" sx={{ mt: 0.5 }}>
+                    {step}
+                  </Typography>
+                ))}
+              </Box>
+            ) : null}
+          </Box>
+        ) : null}
+        <Stack spacing={0.5} sx={{ mt: 1 }}>
+          {visible.map((item) => (
+            <Typography key={item.id} variant="body2">
+              <Link to={`/recommendations/${item.id}`}>{item.resource_id ?? item.title}</Link>
+              {!shared && item.next_steps && item.next_steps.length > 0 ? (
+                <Box component="span" sx={{ color: "text.secondary" }}>{` — ${item.next_steps[0]}`}</Box>
+              ) : null}
+            </Typography>
+          ))}
           {hidden > 0 ? (
-            <Button size="small" sx={{ mt: 0.5, px: 0 }} onClick={() => setExpanded(true)}>
+            <Button size="small" sx={{ px: 0, alignSelf: "flex-start" }} onClick={() => setResourcesOpen(true)}>
               Show the other {hidden}
             </Button>
           ) : null}
-          {expanded && items.length > PREVIEW ? (
-            <Button size="small" sx={{ mt: 0.5, px: 0 }} onClick={() => setExpanded(false)}>
+          {resourcesOpen && items.length > PREVIEW ? (
+            <Button size="small" sx={{ px: 0, alignSelf: "flex-start" }} onClick={() => setResourcesOpen(false)}>
               Show fewer
             </Button>
           ) : null}
-        </Box>
+        </Stack>
       </CardContent>
     </Card>
   );

@@ -51,7 +51,10 @@ def _respond(message: str, facts: list[str], missing: list[str]) -> dict:
     evidence = "\n".join(f"- {fact}" for fact in facts)
     gaps = "\n".join(f"- {item}" for item in missing) or "- None recorded."
     narrative = complete(SYSTEM_PROMPT, f"{message}\n\nFacts:\n{evidence}\n\nMissing evidence:\n{gaps}")
-    provider = (get_settings().ai_provider or "none").lower()
+    settings = get_settings()
+    provider = (settings.ai_provider or "none").lower()
+    if provider == "groq" and settings.groq_api_key.startswith("xai-"):
+        provider = "xai"
     if narrative:
         return {
             "provider": provider,

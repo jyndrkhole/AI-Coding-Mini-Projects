@@ -72,3 +72,31 @@ def test_provider_does_not_call_out_when_unconfigured(monkeypatch: pytest.Monkey
     get_settings.cache_clear()
     assert complete("system", "user") is None
     get_settings.cache_clear()
+
+
+def test_xai_key_uses_the_xai_chat_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AI_PROVIDER", "xai")
+    monkeypatch.setenv("GROQ_API_KEY", "xai-test")
+    monkeypatch.setenv("GROQ_MODEL", "")
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+    seen: dict = {}
+
+    class Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"choices": [{"message": {"content": "ok"}}]}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        seen["url"] = url
+        seen["model"] = json["model"]
+        assert headers["Authorization"] == "Bearer xai-test"
+        return Response()
+
+    monkeypatch.setattr("app.ai.providers.httpx.post", fake_post)
+    assert complete("system", "user") == "ok"
+    assert seen == {"url": "https://api.x.ai/v1/chat/completions", "model": "grok-4.7"}
+    get_settings.cache_clear()
