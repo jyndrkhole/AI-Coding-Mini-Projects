@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 import mysql.connector
@@ -28,6 +29,25 @@ class InspectionResult:
     schema_privileges: list[tuple[str, str, str]] = field(default_factory=list)
     table_privileges: list[tuple[str, str, str, str]] = field(default_factory=list)
     views: list[ViewInfo] = field(default_factory=list)
+
+
+@dataclass
+class QueryResult:
+    sql: str
+    columns: list[str]
+    rows: list[tuple]
+    truncated: bool
+
+
+_FORBIDDEN_SQL = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|TRUNCATE|"
+    r"GRANT|REVOKE|LOAD|CALL|INTO\s+OUTFILE|INTO\s+DUMPFILE)\b",
+    re.IGNORECASE,
+)
+
+
+def quote_ident(name: str) -> str:
+    return "`" + name.replace("`", "``") + "`"
 
 
 def connect(
@@ -186,3 +206,290 @@ def run_inspection(
         return inspect_connection(conn)
     finally:
         conn.close()
+
+
+def _rows_as_records(columns: list[str], rows: list[tuple]) -> list[dict]:
+    records = []
+    for row in rows:
+        record = {}
+        for column, value in zip(columns, row):
+            if isinstance(value, (bytes, bytearray)):
+                record[column] = value.decode("utf-8", "replace")
+            else:
+                record[column] = value
+        records.append(record)
+    return records
+
+
+def preview_view(
+    host: str,
+    user: str,
+    password: str,
+    database: str,
+    view_name: str,
+    *,
+    limit: int = 100,
+    use_ssl: bool = True,
+    ssl_ca: str | None = None,
+) -> QueryResult:
+    limit = max(1, min(int(limit), 1000))
+    sql = (
+        f"SELECT * FROM {quote_ident(database)}.{quote_ident(view_name)} "
+        f"LIMIT {limit}"
+    )
+    return run_select(
+        host,
+        user,
+        password,
+        database,
+        sql,
+        allowed_view=view_name,
+        use_ssl=use_ssl,
+        ssl_ca=ssl_ca,
+        max_rows=limit,
+    )
+
+
+def run_select(
+    host: str,
+    user: str,
+    password: str,
+    database: str,
+    sql: str,
+    *,
+    allowed_view: str,
+    use_ssl: bool = True,
+    ssl_ca: str | None = None,
+    max_rows: int = 1000,
+) -> QueryResult:
+    statement = sql.strip().rstrip(";")
+    if not statement:
+        raise ValueError("Enter a SELECT statement")
+    if ";" in statement:
+        raise ValueError("Only one SQL statement is allowed")
+    if not re.match(r"^SELECT\b", statement, re.IGNORECASE):
+        raise ValueError("Only SELECT queries are allowed")
+    if _FORBIDDEN_SQL.search(statement):
+        raise ValueError("That statement is not allowed")
+    if allowed_view.lower() not in statement.lower():
+        raise ValueError("The query must reference this view")
+
+    max_rows = max(1, min(int(max_rows), 1000))
+    conn = connect(
+        host,
+        user,
+        password,
+        database,
+        use_ssl=use_ssl,
+        ssl_ca=ssl_ca,
+    )
+    cursor = conn.cursor()
+    try:
+        cursor.execute(statement)
+        columns = [item[0] for item in cursor.description] if cursor.description else []
+        rows = cursor.fetchmany(max_rows + 1)
+        truncated = len(rows) > max_rows
+        if truncated:
+            rows = rows[:max_rows]
+        return QueryResult(sql=statement, columns=columns, rows=rows, truncated=truncated)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def query_records(result: QueryResult) -> list[dict]:
+    return _rows_as_records(result.columns, result.rows)
+
+
+POLICY_COLUMN_ALIASES = (
+    "policynumber",
+    "policy_number",
+    "policy_no",
+    "policy number",
+)
+
+
+def detect_policy_column(columns: list[str]) -> str | None:
+    lowered = {name.lower(): name for name in columns}
+    for alias in POLICY_COLUMN_ALIASES:
+        if alias in lowered:
+            return lowered[alias]
+    for name in columns:
+        compact = name.lower().replace("_", "").replace(" ", "")
+        if "policy" in compact and "number" in compact:
+            return name
+    return None
+
+
+def classify_case_views(
+    views: list[ViewInfo],
+    *,
+    summary_name: str | None = None,
+    details_name: str | None = None,
+) -> tuple[ViewInfo | None, ViewInfo | None]:
+    by_name = {view.name.lower(): view for view in views}
+    summary = by_name.get((summary_name or "").lower()) if summary_name else None
+    details = by_name.get((details_name or "").lower()) if details_name else None
+    if summary is None:
+        summary = next((view for view in views if "summar" in view.name.lower()), None)
+    if details is None:
+        details = next((view for view in views if "detail" in view.name.lower()), None)
+    if summary is None and views:
+        summary = views[0]
+    if details is None:
+        details = summary
+    return summary, details
+
+
+def execute_select(
+    host: str,
+    user: str,
+    password: str,
+    database: str,
+    sql: str,
+    *,
+    allowed_view: str,
+    params: tuple = (),
+    use_ssl: bool = True,
+    ssl_ca: str | None = None,
+    max_rows: int = 5000,
+) -> QueryResult:
+    statement = sql.strip().rstrip(";")
+    if not statement:
+        raise ValueError("Enter a SELECT statement")
+    if ";" in statement:
+        raise ValueError("Only one SQL statement is allowed")
+    if not re.match(r"^SELECT\b", statement, re.IGNORECASE):
+        raise ValueError("Only SELECT queries are allowed")
+    if _FORBIDDEN_SQL.search(statement):
+        raise ValueError("That statement is not allowed")
+    if allowed_view.lower() not in statement.lower():
+        raise ValueError("The query must reference this view")
+
+    max_rows = max(1, min(int(max_rows), 5000))
+    conn = connect(
+        host,
+        user,
+        password,
+        database,
+        use_ssl=use_ssl,
+        ssl_ca=ssl_ca,
+    )
+    cursor = conn.cursor()
+    try:
+        cursor.execute(statement, params)
+        columns = [item[0] for item in cursor.description] if cursor.description else []
+        rows = cursor.fetchmany(max_rows + 1)
+        truncated = len(rows) > max_rows
+        if truncated:
+            rows = rows[:max_rows]
+        return QueryResult(sql=statement, columns=columns, rows=rows, truncated=truncated)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def count_view_rows(
+    host: str,
+    user: str,
+    password: str,
+    database: str,
+    view_name: str,
+    *,
+    column: str | None = None,
+    values: list | None = None,
+    use_ssl: bool = True,
+    ssl_ca: str | None = None,
+) -> int:
+    if values and column:
+        placeholders = ", ".join(["%s"] * len(values))
+        sql = (
+            f"SELECT COUNT(*) FROM {quote_ident(database)}.{quote_ident(view_name)} "
+            f"WHERE {quote_ident(column)} IN ({placeholders})"
+        )
+        params = tuple(values)
+    else:
+        sql = f"SELECT COUNT(*) FROM {quote_ident(database)}.{quote_ident(view_name)}"
+        params = ()
+    result = execute_select(
+        host,
+        user,
+        password,
+        database,
+        sql,
+        allowed_view=view_name,
+        params=params,
+        use_ssl=use_ssl,
+        ssl_ca=ssl_ca,
+        max_rows=1,
+    )
+    if not result.rows:
+        return 0
+    return int(result.rows[0][0])
+
+
+def fetch_view_ordered(
+    host: str,
+    user: str,
+    password: str,
+    database: str,
+    view_name: str,
+    *,
+    order_column: str | None = None,
+    descending: bool = True,
+    limit: int = 2000,
+    use_ssl: bool = True,
+    ssl_ca: str | None = None,
+) -> QueryResult:
+    sql = f"SELECT * FROM {quote_ident(database)}.{quote_ident(view_name)}"
+    if order_column:
+        direction = "DESC" if descending else "ASC"
+        sql += f" ORDER BY {quote_ident(order_column)} {direction}"
+    sql += f" LIMIT {max(1, min(int(limit), 5000))}"
+    return execute_select(
+        host,
+        user,
+        password,
+        database,
+        sql,
+        allowed_view=view_name,
+        use_ssl=use_ssl,
+        ssl_ca=ssl_ca,
+        max_rows=limit,
+    )
+
+
+def fetch_rows_by_values(
+    host: str,
+    user: str,
+    password: str,
+    database: str,
+    view_name: str,
+    *,
+    column: str,
+    values: list,
+    descending: bool = True,
+    use_ssl: bool = True,
+    ssl_ca: str | None = None,
+) -> QueryResult:
+    if not values:
+        return QueryResult(sql="", columns=[], rows=[], truncated=False)
+    placeholders = ", ".join(["%s"] * len(values))
+    direction = "DESC" if descending else "ASC"
+    sql = (
+        f"SELECT * FROM {quote_ident(database)}.{quote_ident(view_name)} "
+        f"WHERE {quote_ident(column)} IN ({placeholders}) "
+        f"ORDER BY {quote_ident(column)} {direction}"
+    )
+    return execute_select(
+        host,
+        user,
+        password,
+        database,
+        sql,
+        allowed_view=view_name,
+        params=tuple(values),
+        use_ssl=use_ssl,
+        ssl_ca=ssl_ca,
+        max_rows=5000,
+    )
