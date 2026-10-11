@@ -40,6 +40,10 @@ export function AppShell() {
         <Stack spacing={0.5}>
           <NavItem to="/" label="Dashboard" />
           <NavItem to="/costs" label="Cost Explorer" />
+          <NavItem to="/resources" label="Resources" />
+          <NavItem to="/advisor" label="Advisor" />
+          <NavItem to="/simulate" label="Simulate" />
+          <NavItem to="/report" label="Report" />
         </Stack>
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -79,6 +83,12 @@ export function AppShell() {
                 </NavLink>
                 <NavLink to="/costs" style={{ color: theme.palette.primary.main }}>
                   Cost Explorer
+                </NavLink>
+                <NavLink to="/resources" style={{ color: theme.palette.primary.main }}>
+                  Resources
+                </NavLink>
+                <NavLink to="/advisor" style={{ color: theme.palette.primary.main }}>
+                  Advisor
                 </NavLink>
               </Stack>
             </Box>

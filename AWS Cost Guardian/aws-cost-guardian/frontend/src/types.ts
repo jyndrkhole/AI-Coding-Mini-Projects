@@ -19,7 +19,17 @@ export type CostSummary = {
   mock_aws: boolean;
   history_note: string;
   prior_months_average: number | null;
-  months: { month: string; label: string; amount: number; partial: boolean }[];
+  months: {
+    month: string;
+    label: string;
+    amount: number;
+    partial: boolean;
+    compared_to: string | null;
+    change: number | null;
+    change_percent: number | null;
+    components: { service: string; usage_type: string; change: number }[];
+    other_component_count: number;
+  }[];
 };
 
 export type DailyCosts = {
@@ -119,6 +129,9 @@ export type Recommendation = {
   status: string;
   evidence_summary: string;
   assumptions: string[];
+  client_brief?: string;
+  client_ask?: string;
+  next_steps?: string[];
 };
 
 export type Savings = {
@@ -136,4 +149,59 @@ export type OptimizationScore = {
   maximum: number;
   source: string;
   label: string;
+  strengths?: string[];
+  opportunities?: string[];
+  top_improvements?: string[];
+};
+
+export type InventoryResource = {
+  id: number;
+  resource_id: string;
+  resource_type: string;
+  service: string;
+  region: string;
+  name: string | null;
+  state: string | null;
+  instance_type: string | null;
+  environment: string | null;
+  tags: Record<string, string>;
+  metadata: Record<string, unknown>;
+  metrics?: {
+    metric_name: string;
+    timestamp: string | null;
+    average: number | null;
+    maximum: number | null;
+    sample_count: number | null;
+  }[];
+};
+
+export type AdvisorAnswer = {
+  provider: string;
+  narrative_source: string;
+  narrative: string;
+  facts: string[];
+  missing_evidence: string[];
+};
+
+export type SimulationResult = {
+  label: string;
+  currency: string;
+  current_monthly_cost: number;
+  projected_monthly_cost: number;
+  potential_monthly_savings: number;
+  potential_annual_savings: number;
+  included_resources: string[];
+  excluded_resources: string[];
+  assumptions: string[];
+};
+
+export type MonthlyReport = {
+  id: number;
+  report_month: string;
+  currency: string;
+  total_cost: number;
+  previous_month_cost: number;
+  potential_savings: number;
+  html: string;
+  narrative: string | null;
 };

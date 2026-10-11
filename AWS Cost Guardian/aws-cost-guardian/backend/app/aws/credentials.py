@@ -8,7 +8,7 @@ from app.core.exceptions import FinOpsError
 COST_EXPLORER_REGION = "us-east-1"
 
 
-def build_aws_clients():
+def aws_session():
     settings = get_settings()
     if settings.mock_aws:
         raise FinOpsError("Demo mode does not call AWS.", status_code=400)
@@ -36,4 +36,25 @@ def build_aws_clients():
             aws_session_token=credentials["SessionToken"],
             region_name=settings.aws_region,
         )
+    return session
+
+
+def build_aws_clients():
+    session = aws_session()
     return session.client("sts"), session.client("ce", region_name=COST_EXPLORER_REGION)
+
+
+def build_read_clients() -> dict:
+    """Read-only service clients. Callers must not request a mutating API."""
+    session = aws_session()
+    region = get_settings().aws_region
+    return {
+        "ec2": session.client("ec2", region_name=region),
+        "rds": session.client("rds", region_name=region),
+        "s3": session.client("s3", region_name=region),
+        "lambda": session.client("lambda", region_name=region),
+        "elbv2": session.client("elbv2", region_name=region),
+        "cloudwatch": session.client("cloudwatch", region_name=region),
+        "compute_optimizer": session.client("compute-optimizer", region_name=region),
+        "cost_optimization_hub": session.client("cost-optimization-hub", region_name=COST_EXPLORER_REGION),
+    }

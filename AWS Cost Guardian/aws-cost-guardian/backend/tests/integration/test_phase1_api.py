@@ -42,6 +42,17 @@ def test_cost_summary_uses_stored_totals(client) -> None:
     assert [point["month"] for point in body["months"]] == ["2026-08", "2026-09"]
     assert body["months"][1]["partial"] is False
     assert body["prior_months_average"] == 15870
+    assert body["months"][0]["compared_to"] is None
+    assert body["months"][0]["components"] == []
+    september = body["months"][1]
+    assert september["compared_to"] == "August 2026"
+    assert september["change"] == 2550
+    assert september["change_percent"] == 16.1
+    components = [(item["service"], item["usage_type"], item["change"]) for item in september["components"]]
+    assert components[0] == ("Data Transfer", "DataTransfer-Out-Bytes", 860)
+    assert ("EC2", "BoxUsage:t3.medium", 400) in components
+    assert ("NAT Gateway", "NatGateway-Bytes", 480) in components
+    assert september["other_component_count"] >= 1
 
 
 def test_daily_service_and_region_totals_agree(client) -> None:

@@ -5,14 +5,27 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Too
 import { categoryChartHeight, CategoryTick, useChartColors, zeroValueAxis } from "../components/chartLayout";
 import { KpiCard } from "../components/KpiCard";
 import { RecommendationCard } from "../components/RecommendationCard";
+import { SafeSavingsColumn } from "../components/SafeSavingsColumn";
 import { apiGet } from "../services/api";
 import type { CostSummary, DailyCosts, OptimizationScore, Recommendation, RegionCosts, Savings, ServiceCosts } from "../types";
 import { formatCompactMoney, formatMoney, formatPercent, formatSignedMoney } from "../utils/format";
 
 const groups = [
-  { id: "safe", title: "SAFE SAVINGS" },
-  { id: "review", title: "REVIEW REQUIRED" },
-  { id: "architecture", title: "ARCHITECTURE OPPORTUNITIES" },
+  {
+    id: "safe",
+    title: "SAFE SAVINGS",
+    guidance: "One conversation per kind of waste. Quote a saving only when a card shows an amount.",
+  },
+  {
+    id: "review",
+    title: "REVIEW REQUIRED",
+    guidance: "Largest compute and storage lines. Collect utilization, then price one change. No saving is quoted here.",
+  },
+  {
+    id: "architecture",
+    title: "ARCHITECTURE OPPORTUNITIES",
+    guidance: "Standing hourly charges. The amount is a ceiling if the design changes after a replacement exists. Nothing was removed.",
+  },
 ] as const;
 
 export function DashboardPage() {
@@ -106,6 +119,7 @@ export function DashboardPage() {
             {summary.data.prior_months_average === null
               ? ""
               : ` Average of the earlier full months: ${formatMoney(summary.data.prior_months_average, summary.data.currency)}.`}
+            {" "}Hover a month to see which lines changed from the month before.
           </Typography>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={summary.data.months} margin={{ bottom: 24, right: 8 }}>
@@ -118,10 +132,14 @@ export function DashboardPage() {
                 {...zeroValueAxis(summary.data.months.map((point) => point.amount))}
               />
               <Tooltip
-                formatter={(value, _name, item) => [
-                  formatMoney(Number(value ?? 0), summary.data.currency),
-                  item?.payload?.partial ? "Month to date" : "Full month",
-                ]}
+                content={(tooltip) => (
+                  <MonthChangeTooltip
+                    active={tooltip.active}
+                    payload={tooltip.payload as { payload?: CostSummary["months"][number] }[] | undefined}
+                    currency={summary.data.currency}
+                  />
+                )}
+                wrapperStyle={{ zIndex: 2, outline: "none" }}
               />
               <Bar dataKey="amount" fill={chart.primary} isAnimationActive={false} radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -209,13 +227,18 @@ export function DashboardPage() {
             const items = recommendations.data.recommendations.filter((item) => item.category === group.id);
             return (
               <Stack key={group.id} spacing={1.5}>
-                <Typography variant="h6">{group.title}</Typography>
+                <Box>
+                  <Typography variant="h6">{group.title}</Typography>
+                  <Typography variant="body2" color="text.secondary">{group.guidance}</Typography>
+                </Box>
                 {items.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     {group.id === "safe"
-                      ? "Nothing is marked safe to remove. Idle capacity was not measured."
+                      ? "Nothing is ready to quote. No low-risk cleanup was stored, and idle capacity was not measured."
                       : "None in this group."}
                   </Typography>
+                ) : group.id === "safe" ? (
+                  <SafeSavingsColumn items={items} currency={recommendations.data.currency} />
                 ) : (
                   items.map((item) => (
                     <RecommendationCard key={item.id} item={item} currency={recommendations.data.currency} />
@@ -227,6 +250,60 @@ export function DashboardPage() {
         </Box>
       ) : null}
     </Stack>
+  );
+}
+
+function MonthChangeTooltip({
+  active,
+  payload,
+  currency,
+}: {
+  active?: boolean;
+  payload?: { payload?: CostSummary["months"][number] }[];
+  currency: string;
+}) {
+  const month = active ? payload?.[0]?.payload : undefined;
+  if (!month) return null;
+  return (
+    <Box sx={{ bgcolor: "background.paper", border: 1, borderColor: "divider", borderRadius: 1, px: 1.25, py: 1, maxWidth: 340, boxShadow: 1 }}>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        {month.label}
+        {month.partial ? " · month to date" : ""}
+      </Typography>
+      <Typography variant="body2">{formatMoney(month.amount, currency)}</Typography>
+      {month.compared_to && month.change !== null ? (
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+          {formatSignedMoney(month.change, currency)}
+          {month.change_percent === null ? "" : ` (${formatPercent(month.change_percent)})`} vs {month.compared_to}
+        </Typography>
+      ) : (
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+          First stored month
+        </Typography>
+      )}
+      {(month.components ?? []).map((item) => (
+        <Stack key={`${item.service}-${item.usage_type}`} direction="row" justifyContent="space-between" spacing={1.5} sx={{ mt: 0.75 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="caption" sx={{ display: "block", fontWeight: 600 }}>
+              {item.service}
+            </Typography>
+            {item.usage_type ? (
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                {item.usage_type}
+              </Typography>
+            ) : null}
+          </Box>
+          <Typography variant="caption" sx={{ fontWeight: 700, color: item.change > 0 ? "#9a3412" : "secondary.main", whiteSpace: "nowrap" }}>
+            {formatSignedMoney(item.change, currency)}
+          </Typography>
+        </Stack>
+      ))}
+      {month.other_component_count > 0 ? (
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+          {month.other_component_count} other lines also changed
+        </Typography>
+      ) : null}
+    </Box>
   );
 }
 

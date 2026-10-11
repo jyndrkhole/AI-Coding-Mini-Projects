@@ -1,7 +1,9 @@
 # AWS COST GUARDIAN v1
+
 # AI-Powered AWS FinOps & Cost Optimization Advisor
 
 You are a senior:
+
 - AWS Solutions Architect
 - FinOps engineer
 - Cloud cost optimization specialist
@@ -19,7 +21,9 @@ Tagline:
 "Understand your AWS bill. Find the waste. Explain the trade-offs. Save with confidence."
 
 ============================================================
+
 1. PRODUCT OBJECTIVE
+
 ============================================================
 
 AWS Cost Guardian is an internal AI-powered AWS FinOps application.
@@ -213,7 +217,7 @@ Environment variables:
 
 AI_PROVIDER=ollama
 
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_BASE_URL=[http://localhost:11434](http://localhost:11434)
 OLLAMA_MODEL=
 
 GROQ_API_KEY=
@@ -236,93 +240,95 @@ backend/
     app/
         main.py
 
-        api/
-            routes/
-                health.py
-                aws.py
-                costs.py
-                resources.py
-                recommendations.py
-                savings.py
-                reports.py
-                ai.py
-                simulation.py
-
-        core/
-            config.py
-            logging.py
-            exceptions.py
-
-        db/
-            database.py
-            models.py
-            repositories/
-
-        aws/
-            client.py
-            credentials.py
-            sts.py
-            cost_explorer.py
-            ec2.py
-            ebs.py
-            rds.py
-            s3.py
-            lambda_service.py
-            cloudwatch.py
-            elb.py
-            nat_gateway.py
-            compute_optimizer.py
-            cost_optimization_hub.py
-
-        services/
-            scan_service.py
-            cost_service.py
-            resource_service.py
-            metric_service.py
-            recommendation_service.py
-            savings_service.py
-            risk_service.py
-            simulation_service.py
-            report_service.py
-            tagging_service.py
-
-        rules/
-            base.py
-            registry.py
-            ec2_rules.py
-            ebs_rules.py
-            rds_rules.py
-            s3_rules.py
-            lambda_rules.py
-            nat_rules.py
-            elastic_ip_rules.py
-            tagging_rules.py
-
-        ai/
-            agent.py
-            prompts.py
-            tools.py
-            provider.py
-            ollama_provider.py
-            groq_provider.py
-            bedrock_provider.py
-            context_builder.py
-            guardrails.py
-
-        schemas/
-            account.py
-            cost.py
-            resource.py
-            metric.py
-            recommendation.py
+```
+    api/
+        routes/
+            health.py
+            aws.py
+            costs.py
+            resources.py
+            recommendations.py
             savings.py
-            report.py
+            reports.py
             ai.py
             simulation.py
 
-    tests/
-        unit/
-        integration/
+    core/
+        config.py
+        logging.py
+        exceptions.py
+
+    db/
+        database.py
+        models.py
+        repositories/
+
+    aws/
+        client.py
+        credentials.py
+        sts.py
+        cost_explorer.py
+        ec2.py
+        ebs.py
+        rds.py
+        s3.py
+        lambda_service.py
+        cloudwatch.py
+        elb.py
+        nat_gateway.py
+        compute_optimizer.py
+        cost_optimization_hub.py
+
+    services/
+        scan_service.py
+        cost_service.py
+        resource_service.py
+        metric_service.py
+        recommendation_service.py
+        savings_service.py
+        risk_service.py
+        simulation_service.py
+        report_service.py
+        tagging_service.py
+
+    rules/
+        base.py
+        registry.py
+        ec2_rules.py
+        ebs_rules.py
+        rds_rules.py
+        s3_rules.py
+        lambda_rules.py
+        nat_rules.py
+        elastic_ip_rules.py
+        tagging_rules.py
+
+    ai/
+        agent.py
+        prompts.py
+        tools.py
+        provider.py
+        ollama_provider.py
+        groq_provider.py
+        bedrock_provider.py
+        context_builder.py
+        guardrails.py
+
+    schemas/
+        account.py
+        cost.py
+        resource.py
+        metric.py
+        recommendation.py
+        savings.py
+        report.py
+        ai.py
+        simulation.py
+
+tests/
+    unit/
+    integration/
+```
 
 frontend/
     src/
@@ -762,13 +768,15 @@ Base:
 
 class CostRule:
 
-    rule_id
-    name
-    service
-    description
+```
+rule_id
+name
+service
+description
 
-    def evaluate(context):
-        ...
+def evaluate(context):
+    ...
+```
 
 Create registry:
 
@@ -1348,13 +1356,13 @@ Production impact
 
 Example score:
 
-priority_score =
+## priority_score =
 savings_score
 +
 confidence_score
 +
 safety_score
--
+
 complexity_score
 
 Keep formula deterministic.
@@ -1462,7 +1470,7 @@ Source
 
 Example:
 
---------------------------------------------------
+---
 
 DEV EC2 SCHEDULING
 
@@ -1491,7 +1499,7 @@ AI + Internal Rule
 
 [View Analysis]
 
---------------------------------------------------
+---
 
 ============================================================
 32. RECOMMENDATION DETAILS

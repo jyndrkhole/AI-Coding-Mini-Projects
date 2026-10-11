@@ -1,11 +1,22 @@
 from pydantic import BaseModel
 
 
+class MonthComponentChange(BaseModel):
+    service: str
+    usage_type: str
+    change: float
+
+
 class MonthCostPoint(BaseModel):
     month: str
     label: str
     amount: float
     partial: bool
+    compared_to: str | None = None
+    change: float | None = None
+    change_percent: float | None = None
+    components: list[MonthComponentChange] = []
+    other_component_count: int = 0
 
 
 class CostSummaryResponse(BaseModel):

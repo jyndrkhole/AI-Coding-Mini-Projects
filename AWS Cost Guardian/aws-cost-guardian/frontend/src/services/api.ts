@@ -9,8 +9,20 @@ export async function apiGet<T>(path: string): Promise<T> {
   return request<T>(path);
 }
 
-export async function apiPost<T>(path: string): Promise<T> {
-  return request<T>(path, { method: "POST" });
+export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "POST",
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

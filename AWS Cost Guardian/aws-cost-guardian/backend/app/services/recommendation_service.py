@@ -9,6 +9,7 @@ from app.db.models import CostRecord, Recommendation
 from app.services.account_service import require_account
 from app.services.cost_findings import findings_from_stored_costs
 from app.services.mock_loader import load_json
+from app.services.score_service import calculate_optimization_score
 
 SAVINGS_LABEL = "Estimated potential savings"
 POTENTIAL_STATUSES = ("OPEN", "REVIEWED")
@@ -21,6 +22,19 @@ def _summary(evidence: dict | None) -> str:
     if isinstance(summary, str) and summary.strip():
         return summary.strip()
     return "No evidence summary was recorded."
+
+
+def _text(evidence: dict | None, key: str) -> str:
+    if not isinstance(evidence, dict):
+        return ""
+    value = evidence.get(key)
+    return value.strip() if isinstance(value, str) else ""
+
+
+def _steps(evidence: dict | None) -> list[str]:
+    if not isinstance(evidence, dict) or not isinstance(evidence.get("next_steps"), list):
+        return []
+    return [item.strip() for item in evidence["next_steps"] if isinstance(item, str) and item.strip()]
 
 
 def _assumptions(evidence: dict | None) -> list[str]:
@@ -67,6 +81,10 @@ def list_recommendations(session: Session) -> dict:
                 "status": row.status,
                 "evidence_summary": _summary(row.evidence_json),
                 "assumptions": _assumptions(row.evidence_json),
+                "client_brief": _text(row.evidence_json, "client_brief"),
+                "client_ask": _text(row.evidence_json, "client_ask"),
+                "next_steps": _steps(row.evidence_json),
+                "rule_id": row.rule_id,
             }
         )
     if not recommendations:
@@ -102,7 +120,7 @@ def get_savings(session: Session) -> dict:
             monthly += amount
             annual += as_decimal(item["estimated_annual_savings"])
         label = (
-            "Estimated potential savings. Upper bound if the listed usage is removed."
+            "Estimated potential savings. Ceiling for the architecture items below. Nothing was removed."
             if monthly
             else "No recommendations collected yet."
         )
@@ -119,15 +137,58 @@ def get_savings(session: Session) -> dict:
     }
 
 
+def get_recommendation(session: Session, recommendation_id: int) -> dict:
+    account = require_account(session)
+    row = (
+        session.query(Recommendation)
+        .filter(Recommendation.account_id == account.id, Recommendation.id == recommendation_id)
+        .one_or_none()
+    )
+    if row is None:
+        raise FinOpsError("Recommendation was not found.", status_code=404)
+    payload = list_recommendations(session)
+    match = next((item for item in payload["recommendations"] if item["id"] == recommendation_id), None)
+    if match is None:
+        raise FinOpsError("Recommendation was not found.", status_code=404)
+    match["currency"] = payload["currency"]
+    return match
+
+
+def update_recommendation_status(session: Session, recommendation_id: int, status: str) -> dict:
+    allowed = {"OPEN", "REVIEWED", "DISMISSED", "IMPLEMENTED"}
+    if status not in allowed:
+        raise FinOpsError("Status must be OPEN, REVIEWED, DISMISSED, or IMPLEMENTED.", status_code=400)
+    account = require_account(session)
+    row = (
+        session.query(Recommendation)
+        .filter(Recommendation.account_id == account.id, Recommendation.id == recommendation_id)
+        .one_or_none()
+    )
+    if row is None:
+        raise FinOpsError("Recommendation was not found.", status_code=404)
+    row.status = status
+    session.commit()
+    return get_recommendation(session, recommendation_id)
+
+
 def get_optimization_score(session: Session) -> dict:
-    require_account(session)
+    account = require_account(session)
     if not get_settings().mock_aws:
-        return {
-            "score": None,
-            "maximum": 100,
-            "source": "unavailable",
-            "label": "Not calculated",
-        }
+        from app.services.resource_service import resource_views
+
+        resources = resource_views(session, account.id)
+        if not resources:
+            return {
+                "score": None,
+                "maximum": 100,
+                "source": "unavailable",
+                "label": "Inventory has not been collected",
+                "strengths": [],
+                "opportunities": [],
+                "top_improvements": [],
+            }
+        stored = list_recommendations(session)["recommendations"]
+        return calculate_optimization_score(resources, stored)
     payload = load_json("costs", "costs.json")
     score = int(payload["optimization_score"])
     if not 0 <= score <= 100:

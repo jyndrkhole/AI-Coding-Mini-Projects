@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.routes import aws, costs, health, recommendations, savings
+from app.api.routes import ai, aws, costs, health, recommendations, reports, resources, savings, simulation
 from app.core.config import get_settings
 from app.core.exceptions import FinOpsError
 from app.core.logging import configure_logging
@@ -34,7 +34,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    for route in (health, aws, costs, recommendations, savings):
+    for route in (health, aws, costs, recommendations, savings, resources, simulation, reports, ai):
         app.include_router(route.router, prefix="/api")
 
     @app.exception_handler(FinOpsError)

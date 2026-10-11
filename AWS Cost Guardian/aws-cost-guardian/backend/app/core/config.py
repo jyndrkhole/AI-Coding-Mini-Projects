@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     aws_role_arn: str | None = None
     aws_external_id: str | None = None
     ai_provider: str = "ollama"
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_model: str = ""
+    groq_api_key: str = ""
+    groq_model: str = ""
+    aws_bedrock_region: str = "us-east-1"
+    aws_bedrock_model_id: str = ""
     api_cors_origins: str = "http://localhost:5173"
 
     def resolved_mock_data_dir(self) -> Path:

@@ -60,6 +60,16 @@ pytest
 
 Tests use a temporary database and the checked-in fixtures. They do not call AWS.
 
-## Not in this phase
+## Phases in this build
 
-Cost Explorer collection, the rules engine, Compute Optimizer import, the AI advisor, what-if simulation, reports, and the cross-account IAM role. The optimization score shown now is the demo dataset value, not a calculated score. Alembic is listed in the stack; tables are created on startup until the first migration is added.
+Phases 1 and 2 cover the demo dashboard and Cost Explorer. Later phases add:
+
+- Resource inventory and CloudWatch summaries, shown at `/resources`
+- Internal rules for EC2, EBS, RDS, S3, NAT, addresses, and tag coverage. Savings stay at zero unless a cost is already stored
+- Compute Optimizer and Cost Optimization Hub import on a live scan, using only figures those APIs return
+- An advisor at `/advisor`. It explains stored evidence. Ollama, Groq, or Bedrock is used only when that provider is configured; otherwise the answer is the stored evidence
+- A business-hours what-if estimate at `/simulate`, marked ESTIMATE
+- An HTML monthly report at `/report`. PDF export is not generated
+- The read-only IAM policy in `infra/iam/aws-cost-guardian-readonly-policy.json`
+
+The optimization score in demo mode is still the demo dataset value. A live account gets a score only after inventory is stored. Alembic is listed in the stack; tables are created on startup until the first migration is added.

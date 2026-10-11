@@ -136,10 +136,22 @@ def _grouped(start: str, end: str, keys: list[str], amount: str) -> dict:
     }
 
 
+class _QuietAws:
+    def __getattr__(self, name: str):
+        def _empty(*args, **kwargs):
+            return {}
+
+        return _empty
+
+
 def test_real_scan_stores_cost_explorer_results(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "app.services.scan_service.build_aws_clients",
         lambda: (_FakeSTS(), _FakeCostExplorer()),
+    )
+    monkeypatch.setattr(
+        "app.services.scan_service.build_read_clients",
+        lambda: {name: _QuietAws() for name in ("ec2", "rds", "s3", "lambda", "elbv2", "cloudwatch", "compute_optimizer", "cost_optimization_hub")},
     )
     test_client = build_client(monkeypatch, tmp_path / "real.db", "false")
     with test_client as client:

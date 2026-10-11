@@ -1,6 +1,7 @@
 """Aggregate stored cost records. Totals are sums, not model estimates."""
 
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -36,6 +37,11 @@ def _previous_month(month_start: date) -> date:
 
 def _period_label(month_start: date) -> str:
     return month_start.strftime("%B %Y")
+
+
+# The chart tooltip lists the largest line movements. The rest are counted, not hidden by a percent rule.
+MAX_CHART_COMPONENTS = 6
+USAGE_TOTAL_TOLERANCE = Decimal("1.00")
 
 
 def _current_month(session: Session, account_id: int) -> date:
@@ -77,36 +83,65 @@ def _currency(session: Session, account_id: int) -> str:
     return next(iter(units))
 
 
-def _month_service_totals(session: Session, account_id: int) -> dict[date, object]:
-    rows = (
-        session.query(CostRecord)
-        .filter(CostRecord.account_id == account_id, CostRecord.source == "service")
-        .all()
-    )
-    totals: dict[date, object] = {}
-    for row in rows:
-        if row.service in {None, "", "all"}:
+def _component_changes(earlier: dict, later: dict) -> tuple[list[dict], int]:
+    changes = []
+    for key in set(earlier) | set(later):
+        delta = as_decimal(as_decimal(later.get(key, 0)) - as_decimal(earlier.get(key, 0)))
+        if delta == 0:
             continue
-        month = _as_date(row.date).replace(day=1)
-        totals[month] = as_decimal(totals.get(month, 0)) + as_decimal(row.amount)
-    return totals
+        service, usage_type = key if isinstance(key, tuple) else (key, "")
+        changes.append({"service": service, "usage_type": usage_type, "change": float(delta)})
+    changes.sort(key=lambda item: abs(item["change"]), reverse=True)
+    shown = changes[:MAX_CHART_COMPONENTS]
+    return shown, len(changes) - len(shown)
 
 
 def _history(session: Session, account_id: int, current: date) -> dict:
     start = _add_months(current, -PRIOR_MONTHS)
-    totals = _month_service_totals(session, account_id)
+    services = {
+        month: amounts
+        for month, amounts in _keyed_month_amounts(session, account_id, "service", _service_key).items()
+        if start <= month <= current
+    }
+    usage = _keyed_month_amounts(session, account_id, "usage", _usage_key)
     latest = _latest_daily(session, account_id)
     partial = latest < _next_month(current) - timedelta(days=1)
     months = []
-    for month in sorted(item for item in totals if start <= item <= current):
-        months.append(
-            {
-                "month": month.strftime("%Y-%m"),
-                "label": month.strftime("%b %Y"),
-                "amount": float(as_decimal(totals[month])),
-                "partial": partial and month == current,
-            }
-        )
+    previous = None
+    for month in sorted(services):
+        point = {
+            "month": month.strftime("%Y-%m"),
+            "label": month.strftime("%b %Y"),
+            "amount": float(_bucket_total(services[month])),
+            "partial": partial and month == current,
+            "compared_to": None,
+            "change": None,
+            "change_percent": None,
+            "components": [],
+            "other_component_count": 0,
+        }
+        if previous is not None and _next_month(previous) == month:
+            earlier_total = _bucket_total(services[previous])
+            later_total = _bucket_total(services[month])
+            change, percent = month_over_month(later_total, earlier_total)
+            earlier_usage = usage.get(previous, {})
+            later_usage = usage.get(month, {})
+            usage_matches = (
+                abs(_bucket_total(earlier_usage) - earlier_total) <= USAGE_TOTAL_TOLERANCE
+                and abs(_bucket_total(later_usage) - later_total) <= USAGE_TOTAL_TOLERANCE
+                and (earlier_usage or later_usage)
+            )
+            components, others = _component_changes(
+                earlier_usage if usage_matches else services[previous],
+                later_usage if usage_matches else services[month],
+            )
+            point["compared_to"] = _period_label(previous)
+            point["change"] = float(change)
+            point["change_percent"] = None if percent is None else float(percent)
+            point["components"] = components
+            point["other_component_count"] = others
+        months.append(point)
+        previous = month
     prior_amounts = [as_decimal(point["amount"]) for point in months if not point["partial"] and point["month"] < current.strftime("%Y-%m")]
     average = None
     if prior_amounts:
@@ -121,6 +156,41 @@ def _history(session: Session, account_id: int, current: date) -> dict:
     if len([point for point in months if not point["partial"]]) < PRIOR_MONTHS:
         note = f"{note} A refresh stores up to {PRIOR_MONTHS} earlier months."
     return {"history_note": note, "prior_months_average": average, "months": months}
+
+
+def _keyed_month_amounts(session: Session, account_id: int, source: str, key_fn) -> dict[date, dict]:
+    rows = (
+        session.query(CostRecord)
+        .filter(CostRecord.account_id == account_id, CostRecord.source == source)
+        .all()
+    )
+    grouped: dict[date, dict] = {}
+    for row in rows:
+        key = key_fn(row)
+        if key is None:
+            continue
+        month = _as_date(row.date).replace(day=1)
+        bucket = grouped.setdefault(month, {})
+        bucket[key] = as_decimal(bucket.get(key, 0)) + as_decimal(row.amount)
+    return grouped
+
+
+def _bucket_total(bucket: dict | None) -> Decimal:
+    if not bucket:
+        return Decimal("0.00")
+    return sum((as_decimal(amount) for amount in bucket.values()), Decimal("0.00"))
+
+
+def _service_key(row: CostRecord) -> str | None:
+    if row.service in {None, "", "all"}:
+        return None
+    return row.service
+
+
+def _usage_key(row: CostRecord) -> tuple[str, str] | None:
+    if row.service in {None, "", "all"} or not row.usage_type:
+        return None
+    return (row.service, row.usage_type)
 
 
 def get_cost_summary(session: Session) -> dict:
