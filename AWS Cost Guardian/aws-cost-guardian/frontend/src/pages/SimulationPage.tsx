@@ -1,5 +1,6 @@
 import { Alert, Button, Card, CardContent, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { useState } from "react";
+import { usePageHeader } from "../layouts/pageHeader";
 import { apiPost } from "../services/api";
 import type { SimulationResult } from "../types";
 import { formatMoney } from "../utils/format";
@@ -26,15 +27,15 @@ export function SimulationPage() {
     }
   }
 
+  usePageHeader(
+    "What-if simulation",
+    "Estimate a business-hours schedule for development instances that already have a stored monthly cost. Instances without a stored cost are left out.",
+  );
+
   return (
     <Stack spacing={2}>
-      <Typography variant="h4">What-if simulation</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 720 }}>
-        Estimate a business-hours schedule for development instances that already have a stored monthly cost. Instances
-        without a stored cost are left out.
-      </Typography>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-        <TextField select label="Environment" value={environment} onChange={(event) => setEnvironment(event.target.value)}>
+        <TextField select label="Environment" value={environment} onChange={(event) => setEnvironment(event.target.value)} sx={{ minWidth: 200 }}>
           <MenuItem value="dev">dev</MenuItem>
           <MenuItem value="development">development</MenuItem>
         </TextField>

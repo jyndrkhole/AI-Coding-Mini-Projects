@@ -1,7 +1,8 @@
-import { Alert, Box, Button, Card, CardContent, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Button, Card, CardContent, MenuItem, Stack, TextField, Typography } from "@mui/material";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { PageHeaderAction, usePageHeader } from "../layouts/pageHeader";
 import { apiGet, apiPost } from "../services/api";
 import type { InventoryResource } from "../types";
 
@@ -38,19 +39,15 @@ export function ResourcesPage() {
     }
   }
 
+  usePageHeader("Resources", "Instances, volumes, databases, and buckets collected by the last read-only scan.");
+
   return (
     <Stack spacing={2}>
-      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={2}>
-        <Box>
-          <Typography variant="h4">Resources</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Instances, volumes, databases, and buckets collected by the last read-only scan.
-          </Typography>
-        </Box>
-        <Button variant="contained" onClick={() => void scan()} disabled={scanning} sx={{ alignSelf: "flex-start" }}>
+      <PageHeaderAction>
+        <Button size="small" variant="contained" onClick={() => void scan()} disabled={scanning}>
           {scanning ? "Scanning" : "Scan account"}
         </Button>
-      </Stack>
+      </PageHeaderAction>
       <TextField select label="Service" value={service} onChange={(event) => setService(event.target.value)} sx={{ maxWidth: 280 }}>
         <MenuItem value="">All services</MenuItem>
         {services.map((item) => (

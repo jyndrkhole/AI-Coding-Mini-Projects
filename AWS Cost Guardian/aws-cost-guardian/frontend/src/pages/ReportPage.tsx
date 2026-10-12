@@ -1,5 +1,6 @@
 import { Alert, Button, Card, CardContent, Stack, Typography } from "@mui/material";
 import { useState } from "react";
+import { PageHeaderAction, usePageHeader } from "../layouts/pageHeader";
 import { apiGet, apiPost } from "../services/api";
 import type { MonthlyReport } from "../types";
 
@@ -26,20 +27,18 @@ export function ReportPage() {
     }
   }
 
+  usePageHeader("Monthly report", "The report repeats stored costs and recommendations. PDF export is not generated yet.");
+
   return (
     <Stack spacing={2}>
-      <Typography variant="h4">Monthly report</Typography>
-      <Typography variant="body2" color="text.secondary">
-        The report repeats stored costs and recommendations. PDF export is not generated yet.
-      </Typography>
-      <Stack direction="row" spacing={1}>
-        <Button variant="outlined" onClick={() => void load()}>
+      <PageHeaderAction>
+        <Button size="small" variant="outlined" onClick={() => void load()}>
           Open latest
         </Button>
-        <Button variant="contained" onClick={() => void generate()}>
+        <Button size="small" variant="contained" onClick={() => void generate()}>
           Generate
         </Button>
-      </Stack>
+      </PageHeaderAction>
       {error ? <Alert severity="info">{error}</Alert> : null}
       {report ? (
         <Card>

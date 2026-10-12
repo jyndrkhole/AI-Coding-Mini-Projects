@@ -19,6 +19,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { categoryChartHeight, CategoryTick, useChartColors, useChartTooltip, zeroValueAxis } from "../components/chartLayout";
+import { PageHeaderAction, usePageHeader } from "../layouts/pageHeader";
 import { apiGet, apiPost } from "../services/api";
 import type { CostExplorer, ScanResult } from "../types";
 import { formatCompactMoney, formatPercent } from "../utils/format";
@@ -62,22 +63,20 @@ export function CostExplorerPage() {
 
   const data = explorer.data;
   const filters = draft.start ? draft : data ? { start: data.start, end: data.end, service: "", region: "" } : emptyFilters;
+  usePageHeader(
+    "Cost Explorer",
+    data
+      ? `${data.source_label} unblended cost for ${data.current_period_label} compared with ${data.previous_period_label}.`
+      : "Unblended cost by day, month, service, region, and usage type.",
+  );
 
   return (
     <Stack spacing={3}>
-      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={2}>
-        <Box>
-          <Typography variant="h4">Cost Explorer</Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 720, mt: 0.5 }}>
-            {data
-              ? `${data.source_label} unblended cost for ${data.current_period_label} compared with ${data.previous_period_label}.`
-              : "Unblended cost by day, month, service, region, and usage type."}
-          </Typography>
-        </Box>
-        <Button variant="contained" onClick={() => scan.mutate()} disabled={scan.isPending}>
+      <PageHeaderAction>
+        <Button size="small" variant="contained" onClick={() => scan.mutate()} disabled={scan.isPending}>
           {scan.isPending ? "Refreshing" : "Refresh costs"}
         </Button>
-      </Stack>
+      </PageHeaderAction>
 
       {explorer.isError ? <Alert severity="error">{explorer.error.message}</Alert> : null}
       {scan.isError ? <Alert severity="error">{scan.error.message}</Alert> : null}

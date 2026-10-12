@@ -1,5 +1,6 @@
 import { Alert, Button, Card, CardContent, Stack, TextField, Typography } from "@mui/material";
 import { useState } from "react";
+import { usePageHeader } from "../layouts/pageHeader";
 import { apiPost } from "../services/api";
 import type { AdvisorAnswer } from "../types";
 
@@ -21,13 +22,13 @@ export function AdvisorPage() {
     }
   }
 
+  usePageHeader(
+    "Advisor",
+    "The advisor explains stored costs and recommendations. Dollar amounts come from the application. If the model is not configured, the answer is the stored evidence itself.",
+  );
+
   return (
     <Stack spacing={2}>
-      <Typography variant="h4">Advisor</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 720 }}>
-        The advisor explains stored costs and recommendations. Dollar amounts come from the application. If the model is
-        not configured, the answer is the stored evidence itself.
-      </Typography>
       <TextField multiline minRows={3} label="Question" value={message} onChange={(event) => setMessage(event.target.value)} />
       <Button variant="contained" onClick={() => void ask()} disabled={pending} sx={{ alignSelf: "flex-start" }}>
         {pending ? "Asking" : "Ask"}

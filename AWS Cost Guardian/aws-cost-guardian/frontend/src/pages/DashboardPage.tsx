@@ -1,11 +1,12 @@
-import { Alert, Box, Button, Card, CardContent, Skeleton, Stack, Typography } from "@mui/material";
+import { Alert, Box, Card, CardContent, Skeleton, Stack, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { CategoryTick, useChartColors, useChartTooltip, useValueTones, zeroValueAxis } from "../components/chartLayout";
 import { KpiCard } from "../components/KpiCard";
 import { SafeSavingsColumn } from "../components/SafeSavingsColumn";
+import { usePageHeader } from "../layouts/pageHeader";
 import { apiGet } from "../services/api";
 import type { CostSummary, DailyCosts, OptimizationScore, Recommendation, RegionCosts, Savings, ServiceCosts } from "../types";
 import { formatCompactMoney, formatMoney, formatPercent, formatSignedMoney } from "../utils/format";
@@ -36,7 +37,6 @@ const groups = [
 export function DashboardPage() {
   const chart = useChartColors();
   const tooltip = useChartTooltip();
-  const queryClient = useQueryClient();
   const summary = useQuery({ queryKey: ["costs", "summary"], queryFn: () => apiGet<CostSummary>("/api/costs/summary") });
   const daily = useQuery({ queryKey: ["costs", "daily"], queryFn: () => apiGet<DailyCosts>("/api/costs/daily") });
   const services = useQuery({ queryKey: ["costs", "services"], queryFn: () => apiGet<ServiceCosts>("/api/costs/services") });
@@ -52,24 +52,10 @@ export function DashboardPage() {
   const queries = [summary, daily, services, regions, recommendations, savings, score];
   const error = queries.find((query) => query.isError)?.error;
   const isLoading = queries.some((query) => query.isLoading);
-
-  async function reload() {
-    await queryClient.invalidateQueries();
-  }
+  usePageHeader("Dashboard", "Understand your AWS bill. Find the waste. Explain the trade-offs. Save with confidence.");
 
   return (
     <Stack spacing={2}>
-      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1}>
-        <Box>
-          <Typography variant="h5">Dashboard</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Understand your AWS bill. Find the waste. Explain the trade-offs. Save with confidence.
-          </Typography>
-        </Box>
-        <Button variant="outlined" onClick={() => void reload()}>
-          Reload
-        </Button>
-      </Stack>
 
       {error ? <Alert severity="error">{error.message}</Alert> : null}
 
