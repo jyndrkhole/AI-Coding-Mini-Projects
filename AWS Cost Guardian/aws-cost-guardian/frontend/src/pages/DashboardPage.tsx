@@ -3,12 +3,14 @@ import { useTheme } from "@mui/material/styles";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { categoryChartHeight, CategoryTick, useChartColors, useChartTooltip, useValueTones, zeroValueAxis } from "../components/chartLayout";
+import { CategoryTick, useChartColors, useChartTooltip, useValueTones, zeroValueAxis } from "../components/chartLayout";
 import { KpiCard } from "../components/KpiCard";
 import { SafeSavingsColumn } from "../components/SafeSavingsColumn";
 import { apiGet } from "../services/api";
 import type { CostSummary, DailyCosts, OptimizationScore, Recommendation, RegionCosts, Savings, ServiceCosts } from "../types";
 import { formatCompactMoney, formatMoney, formatPercent, formatSignedMoney } from "../utils/format";
+
+const largestServiceCount = 8;
 
 const groups = [
   {
@@ -46,6 +48,7 @@ export function DashboardPage() {
   const savings = useQuery({ queryKey: ["savings"], queryFn: () => apiGet<Savings>("/api/savings") });
   const score = useQuery({ queryKey: ["optimization-score"], queryFn: () => apiGet<OptimizationScore>("/api/optimization-score") });
 
+  const largestServices = (services.data?.services ?? []).slice(0, largestServiceCount);
   const queries = [summary, daily, services, regions, recommendations, savings, score];
   const error = queries.find((query) => query.isError)?.error;
   const isLoading = queries.some((query) => query.isLoading);
@@ -55,11 +58,11 @@ export function DashboardPage() {
   }
 
   return (
-    <Stack spacing={3}>
-      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={2}>
+    <Stack spacing={2}>
+      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ sm: "center" }} spacing={1}>
         <Box>
-          <Typography variant="h4">Dashboard</Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 640, mt: 0.5 }}>
+          <Typography variant="h5">Dashboard</Typography>
+          <Typography variant="body2" color="text.secondary">
             Understand your AWS bill. Find the waste. Explain the trade-offs. Save with confidence.
           </Typography>
         </Box>
@@ -71,15 +74,15 @@ export function DashboardPage() {
       {error ? <Alert severity="error">{error.message}</Alert> : null}
 
       {isLoading ? (
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" } }}>
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(6, minmax(0, 1fr))" } }}>
           {Array.from({ length: 6 }, (_, index) => (
-            <Skeleton key={index} variant="rounded" height={110} />
+            <Skeleton key={index} variant="rounded" height={96} />
           ))}
         </Box>
       ) : null}
 
       {summary.data && savings.data && score.data ? (
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(3, 1fr)" } }}>
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(6, minmax(0, 1fr))" } }}>
           <KpiCard
             label="Current monthly cost"
             value={formatMoney(summary.data.current_monthly_cost, summary.data.currency)}
@@ -116,77 +119,80 @@ export function DashboardPage() {
         </Box>
       ) : null}
 
-      {summary.data && summary.data.months.length > 0 ? (
-        <ChartCard title="Last 6 months and current">
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {summary.data.history_note}
-            {summary.data.prior_months_average === null
-              ? ""
-              : ` Average of the earlier full months: ${formatMoney(summary.data.prior_months_average, summary.data.currency)}.`}
-            {" "}Hover a month to see which lines changed from the month before.
-          </Typography>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={summary.data.months} margin={{ bottom: 24, right: 8 }}>
-              <CartesianGrid stroke={chart.grid} vertical={false} />
-              <XAxis dataKey="label" interval={0} angle={-28} textAnchor="end" height={56} tick={{ fontSize: 11 }} />
-              <YAxis
-                tickFormatter={(value: number) => formatCompactMoney(value, summary.data.currency)}
-                width={72}
-                tick={{ fontSize: 12 }}
-                {...zeroValueAxis(summary.data.months.map((point) => point.amount))}
-              />
-              <Tooltip
-                content={(tooltip) => (
-                  <MonthChangeTooltip
-                    active={tooltip.active}
-                    payload={tooltip.payload as { payload?: CostSummary["months"][number] }[] | undefined}
-                    currency={summary.data.currency}
-                  />
-                )}
-                wrapperStyle={{ zIndex: 2, outline: "none" }}
-              />
-              <Bar dataKey="amount" fill={chart.primary} isAnimationActive={false} radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      ) : null}
-
-      {daily.data && services.data && regions.data ? (
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "1.4fr 1fr" } }}>
-          <ChartCard title={`Daily cost · ${daily.data.period_label}`}>
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={daily.data.points} margin={{ right: 8, bottom: 8 }}>
+      {(summary.data && summary.data.months.length > 0) || (daily.data && services.data && regions.data) ? (
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, overflow: "visible" }}>
+          {summary.data && summary.data.months.length > 0 ? (
+          <ChartCard title="Last 6 months and current">
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+              {summary.data.history_note}
+              {summary.data.prior_months_average === null
+                ? ""
+                : ` Average of the earlier full months: ${formatMoney(summary.data.prior_months_average, summary.data.currency)}.`}
+              {" "}Hover a month to see which lines changed from the month before.
+            </Typography>
+            <Box sx={{ overflow: "visible", "& .recharts-wrapper, & .recharts-tooltip-wrapper": { overflow: "visible !important" } }}>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={summary.data.months} margin={{ bottom: 4, right: 8 }}>
                 <CartesianGrid stroke={chart.grid} vertical={false} />
-                <XAxis dataKey="date" minTickGap={32} tickFormatter={(value: string) => value.slice(8)} tick={{ fontSize: 12 }} />
+                <XAxis dataKey="label" interval={0} angle={-28} textAnchor="end" height={46} tick={{ fontSize: 11 }} />
                 <YAxis
-                  tickFormatter={(value: number) => formatCompactMoney(value, daily.data.currency)}
-                  width={72}
-                  tick={{ fontSize: 12 }}
-                  {...zeroValueAxis(daily.data.points.map((point) => point.amount))}
+                  tickFormatter={(value: number) => formatCompactMoney(value, summary.data.currency)}
+                  width={64}
+                  tick={{ fontSize: 11 }}
+                  {...zeroValueAxis(summary.data.months.map((point) => point.amount))}
                 />
-                <Tooltip {...tooltip} formatter={(value) => formatMoney(Number(value ?? 0), daily.data.currency)} />
-                <Area type="monotone" dataKey="amount" stroke={chart.primary} fill={chart.area} isAnimationActive={false} />
-              </AreaChart>
+                <Tooltip
+                  content={(tooltip) => (
+                    <MonthChangeTooltip
+                      active={tooltip.active}
+                      payload={tooltip.payload as { payload?: CostSummary["months"][number] }[] | undefined}
+                      currency={summary.data.currency}
+                    />
+                  )}
+                  allowEscapeViewBox={{ x: true, y: true }}
+                  wrapperStyle={{ zIndex: 20, outline: "none", pointerEvents: "none", width: "max-content" }}
+                />
+                <Bar dataKey="amount" fill={chart.primary} isAnimationActive={false} radius={[4, 4, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
+            </Box>
           </ChartCard>
-          <Stack spacing={2}>
+          ) : null}
+          {daily.data && services.data && regions.data ? (
+            <ChartCard title={`Daily cost · ${daily.data.period_label}`}>
+              <ResponsiveContainer width="100%" height={180}>
+                <AreaChart data={daily.data.points} margin={{ right: 8, bottom: 8 }}>
+                  <CartesianGrid stroke={chart.grid} vertical={false} />
+                  <XAxis dataKey="date" minTickGap={32} tickFormatter={(value: string) => value.slice(8)} tick={{ fontSize: 11 }} />
+                  <YAxis
+                    tickFormatter={(value: number) => formatCompactMoney(value, daily.data.currency)}
+                    width={64}
+                    tick={{ fontSize: 11 }}
+                    {...zeroValueAxis(daily.data.points.map((point) => point.amount))}
+                  />
+                  <Tooltip {...tooltip} formatter={(value) => formatMoney(Number(value ?? 0), daily.data.currency)} />
+                  <Area type="monotone" dataKey="amount" stroke={chart.primary} fill={chart.area} isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          ) : null}
+          {daily.data && services.data && regions.data ? (
             <ChartCard title="Service cost">
-              <ResponsiveContainer width="100%" height={categoryChartHeight(services.data.services.length)}>
-                <BarChart data={services.data.services} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
+              {services.data.services.length > largestServiceCount ? (
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                  Largest {largestServiceCount} of {services.data.services.length} services. Smaller ones stay on Cost Explorer.
+                </Typography>
+              ) : null}
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={largestServices} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
                   <CartesianGrid stroke={chart.grid} horizontal={false} />
                   <XAxis
                     type="number"
                     tickFormatter={(value: number) => formatCompactMoney(value, services.data.currency)}
-                    tick={{ fontSize: 12 }}
-                    {...zeroValueAxis(services.data.services.map((row) => row.current))}
+                    tick={{ fontSize: 11 }}
+                    {...zeroValueAxis(largestServices.map((row) => row.current))}
                   />
-                  <YAxis
-                    type="category"
-                    dataKey="service"
-                    width={188}
-                    interval={0}
-                    tick={<CategoryTick />}
-                  />
+                  <YAxis type="category" dataKey="service" width={168} interval={0} tick={<CategoryTick />} />
                   <Tooltip
                     {...tooltip}
                     formatter={(value) => formatMoney(Number(value ?? 0), services.data.currency)}
@@ -196,18 +202,20 @@ export function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
+          ) : null}
+          {daily.data && services.data && regions.data ? (
             <ChartCard title="Regional cost">
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={200}>
                 <BarChart
                   data={regions.data.regions.filter((row) => row.current !== 0 || row.previous !== 0)}
                   margin={{ bottom: 28, right: 8 }}
                 >
                   <CartesianGrid stroke={chart.grid} vertical={false} />
-                  <XAxis dataKey="region" interval={0} angle={-28} textAnchor="end" height={52} tick={{ fontSize: 11 }} />
+                  <XAxis dataKey="region" interval={0} angle={-28} textAnchor="end" height={48} tick={{ fontSize: 11 }} />
                   <YAxis
                     tickFormatter={(value: number) => formatCompactMoney(value, regions.data.currency)}
-                    width={72}
-                    tick={{ fontSize: 12 }}
+                    width={64}
+                    tick={{ fontSize: 11 }}
                     {...zeroValueAxis(regions.data.regions.map((row) => row.current))}
                   />
                   <Tooltip {...tooltip} formatter={(value) => formatMoney(Number(value ?? 0), regions.data.currency)} />
@@ -215,7 +223,7 @@ export function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-          </Stack>
+          ) : null}
         </Box>
       ) : null}
 
@@ -262,8 +270,8 @@ function GroupHeader({ group, count }: { group: (typeof groups)[number]; count: 
     group.id === "safe" ? tones.savings : group.id === "review" ? tones.increase : theme.palette.primary.main;
   const countLabel = count === 0 ? "None stored" : group.id === "safe" ? `${count} findings` : `${count} items`;
   return (
-    <Card sx={{ borderTop: "3px solid", borderTopColor: accent, minHeight: { lg: 148 } }}>
-      <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+    <Card sx={{ borderTop: "3px solid", borderTopColor: accent }}>
+      <CardContent sx={{ py: 1.25, "&:last-child": { pb: 1.25 } }}>
         <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={1}>
           <Typography variant="overline" sx={{ color: accent, letterSpacing: "0.12em", lineHeight: 1.4 }}>
             {group.stance}
@@ -296,7 +304,7 @@ function MonthChangeTooltip({
   const month = active ? payload?.[0]?.payload : undefined;
   if (!month) return null;
   return (
-    <Box sx={{ bgcolor: "background.paper", border: 1, borderColor: "divider", borderRadius: 1, px: 1.25, py: 1, maxWidth: 340, boxShadow: 1 }}>
+    <Box sx={{ bgcolor: "background.paper", border: 1, borderColor: "divider", borderRadius: 1, px: 1.25, py: 1, width: "max-content", maxWidth: 640, boxShadow: 3 }}>
       <Typography variant="body2" sx={{ fontWeight: 700 }}>
         {month.label}
         {month.partial ? " · month to date" : ""}
@@ -313,21 +321,21 @@ function MonthChangeTooltip({
         </Typography>
       )}
       {(month.components ?? []).map((item) => (
-        <Stack key={`${item.service}-${item.usage_type}`} direction="row" justifyContent="space-between" spacing={1.5} sx={{ mt: 0.75 }}>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="caption" sx={{ display: "block", fontWeight: 600 }}>
+        <Box key={`${item.service}-${item.usage_type}`} sx={{ mt: 0.75 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="baseline" spacing={2}>
+            <Typography variant="caption" sx={{ fontWeight: 600, whiteSpace: "nowrap" }}>
               {item.service}
             </Typography>
-            {item.usage_type ? (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                {item.usage_type}
-              </Typography>
-            ) : null}
-          </Box>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: item.change > 0 ? tones.increase : tones.savings, whiteSpace: "nowrap" }}>
-            {formatSignedMoney(item.change, currency)}
-          </Typography>
-        </Stack>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: item.change > 0 ? tones.increase : tones.savings, whiteSpace: "nowrap" }}>
+              {formatSignedMoney(item.change, currency)}
+            </Typography>
+          </Stack>
+          {item.usage_type ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", whiteSpace: "nowrap" }}>
+              {item.usage_type}
+            </Typography>
+          ) : null}
+        </Box>
       ))}
       {month.other_component_count > 0 ? (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
@@ -340,9 +348,9 @@ function MonthChangeTooltip({
 
 function ChartCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
+    <Card sx={{ height: "100%", overflow: "visible" }}>
+      <CardContent sx={{ py: 1.5, overflow: "visible", "&:last-child": { pb: 1.5 } }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
           {title}
         </Typography>
         {children}
