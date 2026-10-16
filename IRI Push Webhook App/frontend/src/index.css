@@ -411,6 +411,47 @@ th {
   margin-bottom: 16px;
 }
 
+.reconcile-credentials {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.reconcile-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.reconcile-pane {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.reconcile-pane h4 {
+  margin: 0 0 12px;
+}
+
+.reconcile-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.reconcile-detail {
+  position: sticky;
+  top: 12px;
+}
+
+tr.is-selected td {
+  background: color-mix(in srgb, var(--teal) 12%, transparent);
+}
+
 label.field {
   display: flex;
   flex-direction: column;
@@ -590,8 +631,14 @@ textarea {
   .grid-stats,
   .filters,
   .split,
-  .detail-grid {
+  .detail-grid,
+  .reconcile-split,
+  .reconcile-credentials {
     grid-template-columns: 1fr;
+  }
+
+  .reconcile-detail {
+    position: static;
   }
 
   .topbar {

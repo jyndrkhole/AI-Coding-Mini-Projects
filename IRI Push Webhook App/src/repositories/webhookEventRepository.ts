@@ -145,6 +145,29 @@ export function listWebhookEvents(
   };
 }
 
+export function findPortalEventsBySourceEventIds(sourceEventIds: string[]): Map<string, string> {
+  const ids = [...new Set(sourceEventIds.map((id) => id.trim()).filter(Boolean))];
+  const found = new Map<string, string>();
+  if (ids.length === 0) {
+    return found;
+  }
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = getDb()
+    .prepare(
+      `SELECT id, json_extract(payload_json, '$.eventId') AS source_event_id
+       FROM webhook_events
+       WHERE json_extract(payload_json, '$.eventId') IN (${placeholders})
+       ORDER BY received_at DESC`
+    )
+    .all(...ids) as { id: string; source_event_id: string | null }[];
+  for (const row of rows) {
+    if (row.source_event_id && !found.has(row.source_event_id)) {
+      found.set(row.source_event_id, row.id);
+    }
+  }
+  return found;
+}
+
 export function deleteAllWebhookEvents(): number {
   const result = getDb().prepare("DELETE FROM webhook_events").run();
   return result.changes;

@@ -113,5 +113,11 @@ export const env = {
   corsOrigin: envString("CORS_ORIGIN", "*"),
   bodyLimit: envString("BODY_LIMIT", "1mb"),
   rateLimitWindowMs: envNumber("RATE_LIMIT_WINDOW_MS", 60_000),
-  rateLimitMax: envNumber("RATE_LIMIT_MAX", 300)
+  rateLimitMax: envNumber("RATE_LIMIT_MAX", 300),
+  portalEnvironment: envString("PORTAL_ENVIRONMENT", ""),
+  sourceApiBaseUrl: envString("SOURCE_API_BASE_URL", ""),
+  sourceApiBaseUrlQa: envString("SOURCE_API_BASE_URL_QA", ""),
+  sourceApiBaseUrlInt: envString("SOURCE_API_BASE_URL_INT", ""),
+  sourceApiBaseUrlProd: envString("SOURCE_API_BASE_URL_PROD", ""),
+  sourceApiKey: envString("SOURCE_API_KEY", "") || envString("SOURCE_X_API_KEY", "")
 };

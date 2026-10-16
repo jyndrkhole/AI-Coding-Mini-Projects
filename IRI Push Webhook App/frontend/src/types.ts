@@ -61,6 +61,44 @@ export interface PortalConfig {
   allowedResponseStatuses: number[];
   catalogVersion: string;
   portalAuthEnabled?: boolean;
+  portalEnvironment?: string;
+  sourceApiBaseUrl?: string;
+  sourceApiKeyConfigured?: boolean;
+  sourceApiMessage?: string;
+}
+
+export interface ReconciliationEvent {
+  eventId: string;
+  policyNumber?: string;
+  id?: string;
+  status?: string;
+  applicationOrigin?: {
+    platform?: string;
+    isElectronic?: boolean;
+    id?: string;
+  };
+  stored: boolean;
+  portalEventId: string | null;
+}
+
+export interface ReconciliationResult {
+  sourceBaseUrl: string;
+  sourceStatus: number;
+  message: string;
+  totalEvents: number;
+  storedCount: number;
+  missingCount: number;
+  events: ReconciliationEvent[];
+}
+
+export interface SourceEventResult {
+  sourceBaseUrl: string;
+  sourceStatus: number;
+  message: string;
+  eventId: string;
+  stored: boolean;
+  portalEventId: string | null;
+  payload: unknown;
 }
 
 export interface PortalSession {

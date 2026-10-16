@@ -1,5 +1,11 @@
 import type { Request, RequestHandler } from "express";
 import { env } from "../../config/env.ts";
+import {
+  missingSourceUrlMessage,
+  portalEnvironment,
+  sourceApiBaseUrl,
+  sourceApiKey
+} from "../../services/sourceNotifications.ts";
 import { isPortalAuthEnabled } from "../../config/portalSession.ts";
 import { advertisedPublicBaseUrl, advertisedWebhookUrl } from "../../config/publicUrl.ts";
 import { getRuntimeConfig, updateRuntimeConfig } from "../../config/runtimeConfig.ts";
@@ -14,7 +20,11 @@ function configPayload(req: Request, runtime = getRuntimeConfig()) {
     allowedResponseStatuses: ALLOWED_RESPONSE_STATUSES,
     webhookUrl: advertisedWebhookUrl(req, runtime.webhookPath),
     catalogVersion: env.iriVersion,
-    portalAuthEnabled: isPortalAuthEnabled()
+    portalAuthEnabled: isPortalAuthEnabled(),
+    portalEnvironment: portalEnvironment(),
+    sourceApiBaseUrl: sourceApiBaseUrl(),
+    sourceApiKeyConfigured: Boolean(sourceApiKey()),
+    sourceApiMessage: sourceApiBaseUrl() ? "" : missingSourceUrlMessage()
   };
 }
 

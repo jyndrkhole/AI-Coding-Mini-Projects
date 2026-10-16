@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { DashboardPage } from "./pages/Dashboard";
 import { EventsPage } from "./pages/Events";
+import { ReconcilePage } from "./pages/Reconcile";
 import { EventDetailPage } from "./pages/EventDetail";
 import { SendTestPage } from "./pages/SendTest";
 import { SettingsPage } from "./pages/Settings";
@@ -76,6 +77,7 @@ export default function App() {
       <Route element={<Layout portalSession={session} onLoggedOut={setSession} />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/events" element={<EventsPage />} />
+        <Route path="/reconcile" element={<ReconcilePage />} />
         <Route path="/events/:id" element={<EventDetailPage />} />
         <Route path="/send-test" element={<SendTestPage />} />
         <Route path="/settings" element={<SettingsPage />} />

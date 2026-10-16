@@ -130,6 +130,66 @@ export const openApiSpec = {
         }
       }
     },
+    "/api/reconciliation": {
+      get: {
+        tags: ["Internal API"],
+        summary: "Call the configured source reconciliation API and compare with stored webhooks",
+        description:
+          "Posts the source x-api-key to the environment source URL /getAuthToken, then proxies GET /v1/application-notifications/reconciliation with the Authorization token. QA, INT, and PROD each use their own SOURCE_API_BASE_URL_* value.",
+        parameters: [
+          { name: "startTime", in: "query", required: true, schema: { type: "string", format: "date", example: "2026-01-01" } },
+          { name: "endTime", in: "query", required: true, schema: { type: "string", format: "date", example: "2026-10-16" } },
+          { name: "associatedFirmId", in: "query", schema: { type: "string" } },
+          { name: "correlationId", in: "query", schema: { type: "string" } },
+          {
+            name: "X-Source-Api-Key",
+            in: "header",
+            schema: { type: "string" },
+            description: "Source x-api-key entered in the portal. Sent only to POST /getAuthToken."
+          },
+          {
+            name: "X-Source-Base-Url",
+            in: "header",
+            schema: { type: "string" },
+            description: "Source endpoint entered for this test. Falls back to the environment default when omitted."
+          }
+        ],
+        responses: {
+          "200": { description: "Source list compared with stored events" },
+          "400": { description: "Missing window or source URL" },
+          "502": { description: "Source API could not be reached" }
+        }
+      }
+    },
+    "/api/reconciliation/events/{eventId}": {
+      get: {
+        tags: ["Internal API"],
+        summary: "Call the source API to retrieve one notification payload",
+        description:
+          "Posts the source x-api-key to the environment source URL /getAuthToken, then proxies GET /v1/application-notifications/{eventId} with the Authorization token.",
+        parameters: [
+          { name: "eventId", in: "path", required: true, schema: { type: "string" } },
+          { name: "correlationId", in: "query", schema: { type: "string" } },
+          {
+            name: "X-Source-Api-Key",
+            in: "header",
+            schema: { type: "string" },
+            description: "Source x-api-key entered in the portal. Sent only to POST /getAuthToken."
+          },
+          {
+            name: "X-Source-Base-Url",
+            in: "header",
+            schema: { type: "string" },
+            description: "Source endpoint entered for this test. Falls back to the environment default when omitted."
+          }
+        ],
+        responses: {
+          "200": { description: "Source payload" },
+          "400": { description: "Missing source URL or event id" },
+          "502": { description: "Source API could not be reached" }
+        }
+      }
+    },
     "/api/stats": {
       get: {
         tags: ["Internal API"],

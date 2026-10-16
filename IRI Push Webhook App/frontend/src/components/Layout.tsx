@@ -49,6 +49,7 @@ export function Layout({
             Dashboard
           </NavLink>
           <NavLink to="/events">Events</NavLink>
+          <NavLink to="/reconcile">Reconcile</NavLink>
           <NavLink to="/send-test">Send Test Notification</NavLink>
           <NavLink to="/settings">Settings</NavLink>
           <NavLink to="/api-docs">API Documentation</NavLink>

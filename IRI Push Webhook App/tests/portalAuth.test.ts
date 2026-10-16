@@ -52,7 +52,8 @@ describe("portal UI login", () => {
       .send({ username: "admin", password: "portal-secret" })
       .expect(200);
     expect(login.body.authenticated).toBe(true);
-    const setCookie = login.headers["set-cookie"]?.join(";") ?? "";
+    const rawCookie = login.headers["set-cookie"];
+    const setCookie = Array.isArray(rawCookie) ? rawCookie.join(";") : rawCookie ?? "";
     expect(setCookie).toContain("portal_session_3000=");
     expect(setCookie).toContain("portal_session=;");
     expect(setCookie).toMatch(/Max-Age=3600/);

@@ -17,8 +17,16 @@ function highlightJson(value: string): string {
   );
 }
 
-export function JsonViewer({ value, label = "JSON" }: { value: unknown; label?: string }) {
-  const [expanded, setExpanded] = useState(true);
+export function JsonViewer({
+  value,
+  label = "JSON",
+  defaultExpanded = true
+}: {
+  value: unknown;
+  label?: string;
+  defaultExpanded?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const pretty = useMemo(() => JSON.stringify(value, null, 2), [value]);
   const html = useMemo(() => highlightJson(pretty.replace(/</g, "&lt;")), [pretty]);
 

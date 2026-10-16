@@ -6,6 +6,8 @@ import type {
   EventListResult,
   PortalConfig,
   PortalSession,
+  ReconciliationResult,
+  SourceEventResult,
   WebhookEvent
 } from "../types";
 
@@ -49,10 +51,23 @@ function request(path: string, init: RequestInit = {}): Promise<Response> {
   return fetch(path, { credentials: "same-origin", ...init });
 }
 
-function queryString(query: EventListQuery): string {
+function sourceRequestHeaders(sourceApiKey?: string, sourceBaseUrl?: string): HeadersInit | undefined {
+  const headers: Record<string, string> = {};
+  const key = sourceApiKey?.trim();
+  const base = sourceBaseUrl?.trim();
+  if (key) {
+    headers["X-Source-Api-Key"] = key;
+  }
+  if (base) {
+    headers["X-Source-Base-Url"] = base;
+  }
+  return Object.keys(headers).length ? headers : undefined;
+}
+
+function queryString(query: object): string {
   const params = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
-    if (value) {
+    if (typeof value === "string" && value) {
       params.set(key, value);
     }
   });
@@ -121,6 +136,25 @@ export const api = {
   },
   getHealth: () =>
     request("/health").then((res) => parseJson<{ status: string; service: string; timestamp: string }>(res)),
+  reconcile: (query: {
+    startTime: string;
+    endTime: string;
+    associatedFirmId?: string;
+    correlationId?: string;
+    sourceApiKey?: string;
+    sourceBaseUrl?: string;
+  }) => {
+    const { sourceApiKey, sourceBaseUrl, ...filters } = query;
+    return request(`/api/reconciliation${queryString(filters)}`, {
+      headers: sourceRequestHeaders(sourceApiKey, sourceBaseUrl)
+    }).then((res) => parseJson<ReconciliationResult>(res));
+  },
+  fetchSourceEvent: (eventId: string, correlationId?: string, sourceApiKey?: string, sourceBaseUrl?: string) => {
+    const query = correlationId ? `?correlationId=${encodeURIComponent(correlationId)}` : "";
+    return request(`/api/reconciliation/events/${encodeURIComponent(eventId)}${query}`, {
+      headers: sourceRequestHeaders(sourceApiKey, sourceBaseUrl)
+    }).then((res) => parseJson<SourceEventResult>(res));
+  },
   sendWebhook: (payload: unknown, apiKey?: string) => {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (apiKey) {

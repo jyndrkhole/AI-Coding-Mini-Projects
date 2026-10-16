@@ -5,6 +5,7 @@ import { clearEvents, exportEvents, getEvent, listEvents } from "../controllers/
 import { getCatalogEvent, listCatalog } from "../controllers/catalogController.ts";
 import { getStats } from "../controllers/statsController.ts";
 import { getConfig, putConfig } from "../controllers/configController.ts";
+import { reconcileNotifications, replaySourceEvent } from "../controllers/reconciliationController.ts";
 import { getPortalSession, portalLogin, portalLoginLimiter, portalLogout } from "../controllers/portalAuthController.ts";
 import { streamEvents } from "../controllers/sseController.ts";
 import { webhookAuth } from "../middleware/webhookAuth.ts";
@@ -29,6 +30,8 @@ apiRouter.get("/events", listCatalog);
 apiRouter.get("/events/:eventType", getCatalogEvent);
 apiRouter.get("/config", getConfig);
 apiRouter.put("/config", putConfig);
+apiRouter.get("/reconciliation", reconcileNotifications);
+apiRouter.get("/reconciliation/events/:eventId", replaySourceEvent);
 apiRouter.get("/stream", streamEvents);
 
 export const healthRouter = Router();

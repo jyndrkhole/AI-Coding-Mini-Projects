@@ -101,16 +101,16 @@ export function EventDetailPage() {
         </section>
       </div>
       <section className="card panel" style={{ marginTop: 16 }}>
-        <h3>Request headers</h3>
-        <p className="help">Authorization, API keys, tokens, and secrets are masked.</p>
-        <div style={{ marginTop: 12 }}>
-          <JsonViewer value={event.headers} label="Headers" />
-        </div>
-      </section>
-      <section className="card panel" style={{ marginTop: 16 }}>
         <h3>Request payload</h3>
         <div style={{ marginTop: 12 }}>
           <JsonViewer value={event.payload} label="Payload" />
+        </div>
+      </section>
+      <section className="card panel" style={{ marginTop: 16 }}>
+        <h3>Request headers</h3>
+        <p className="help">Authorization, API keys, tokens, and secrets are masked.</p>
+        <div style={{ marginTop: 12 }}>
+          <JsonViewer value={event.headers} label="Headers" defaultExpanded={false} />
         </div>
       </section>
     </div>

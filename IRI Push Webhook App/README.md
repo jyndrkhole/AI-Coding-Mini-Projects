@@ -117,6 +117,12 @@ Then open http://localhost:3000
 | `BODY_LIMIT` | `1mb` | JSON body size limit |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Webhook rate-limit window |
 | `RATE_LIMIT_MAX` | `300` | Max webhook requests per window |
+| `PORTAL_ENVIRONMENT` | empty | `QA`, `INT`, or `PROD`. Selects which default source URL this portal uses. |
+| `SOURCE_API_BASE_URL_QA` | empty | Default source host when `PORTAL_ENVIRONMENT=QA`. |
+| `SOURCE_API_BASE_URL_INT` | empty | Default source host when `PORTAL_ENVIRONMENT=INT`. |
+| `SOURCE_API_BASE_URL_PROD` | empty | Default source host when `PORTAL_ENVIRONMENT=PROD`. |
+| `SOURCE_API_BASE_URL` | empty | Optional override of the environment URL above. The portal posts `x-api-key` to `{base}/getAuthToken`, then calls reconciliation and get-by-event-id with the returned `Authorization` token. |
+| `SOURCE_API_KEY` | empty | Optional fallback `x-api-key` for getAuthToken. Leave blank so the user enters the source x-api-key on the Reconcile page. `SOURCE_X_API_KEY` is accepted as an alias. |
 
 Response status and delay can also be changed at runtime from **Settings** without restarting.
 
@@ -159,6 +165,8 @@ Default success response:
 | `GET` | `/api/events` | IRI catalogue |
 | `GET` | `/api/events/:eventType` | Catalogue item + sample payload |
 | `GET` | `/api/config` | Runtime config |
+| `GET` | `/api/reconciliation` | Call this environment's source reconciliation API and compare with stored webhooks |
+| `GET` | `/api/reconciliation/events/:eventId` | Call this environment's source API for one notification payload |
 | `PUT` | `/api/config` | Change simulated status/delay |
 | `GET` | `/api/stream` | SSE feed of new webhooks |
 | `GET` | `/api-docs` | Swagger UI |
@@ -220,6 +228,7 @@ Open http://localhost:5173 (dev) or http://localhost:3000 (production build).
 |---|---|
 | Dashboard | Stats, recent events, online status, copy webhook URL |
 | Events | Filter by catalogue event type, policy, status, date, search. Export JSON or CSV of every match (up to 5,000) |
+| Reconcile | Enter a source endpoint and x-api-key to test reconciliation and get-by-event-id. The endpoint defaults to this environment's source URL |
 | Event detail | Headers (secrets masked), payload JSON, response |
 | Send Test Notification | Load IRI sample payload, edit, send, copy curl |
 | Settings | Simulate 200/201/202/400/401/403/409/500/503 and delays |

@@ -7,6 +7,12 @@ param(
   [int]$Port = 3100,
   [string]$PortalUsername = "admin",
   [string]$PortalPassword = "",
+  [ValidateSet("", "QA", "INT", "PROD")][string]$PortalEnvironment = "",
+  [string]$SourceApiBaseUrl = "",
+  [string]$SourceApiBaseUrlQa = "",
+  [string]$SourceApiBaseUrlInt = "",
+  [string]$SourceApiBaseUrlProd = "",
+  [string]$SourceApiKey = "",
   [string]$AppDir = (Get-Location).Path
 )
 
@@ -27,6 +33,14 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 New-Item -ItemType Directory -Force -Path "data" | Out-Null
 
 $base = $PublicBaseUrl.TrimEnd("/")
+$environment = $PortalEnvironment.ToUpper()
+$qaUrl = $SourceApiBaseUrlQa.TrimEnd("/")
+$intUrl = $SourceApiBaseUrlInt.TrimEnd("/")
+$prodUrl = $SourceApiBaseUrlProd.TrimEnd("/")
+$explicitUrl = $SourceApiBaseUrl.TrimEnd("/")
+if ($environment -eq "QA" -and -not $qaUrl) { $qaUrl = $explicitUrl; $explicitUrl = "" }
+if ($environment -eq "INT" -and -not $intUrl) { $intUrl = $explicitUrl; $explicitUrl = "" }
+if ($environment -eq "PROD" -and -not $prodUrl) { $prodUrl = $explicitUrl; $explicitUrl = "" }
 @(
   "PORT=$Port",
   "NODE_ENV=production",
@@ -43,7 +57,13 @@ $base = $PublicBaseUrl.TrimEnd("/")
   "CORS_ORIGIN=*",
   "BODY_LIMIT=1mb",
   "RATE_LIMIT_WINDOW_MS=60000",
-  "RATE_LIMIT_MAX=300"
+  "RATE_LIMIT_MAX=300",
+  "PORTAL_ENVIRONMENT=$environment",
+  "SOURCE_API_BASE_URL_QA=$qaUrl",
+  "SOURCE_API_BASE_URL_INT=$intUrl",
+  "SOURCE_API_BASE_URL_PROD=$prodUrl",
+  "SOURCE_API_BASE_URL=$explicitUrl",
+  "SOURCE_API_KEY=$SourceApiKey"
 ) | Set-Content -Path ".env" -Encoding utf8
 
 Write-Host "Installing npm packages..."
