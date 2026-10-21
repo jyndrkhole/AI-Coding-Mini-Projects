@@ -20,16 +20,16 @@ def collect_metrics(cloudwatch, resources: list[dict], *, now: datetime | None =
     metrics: list[dict] = []
     collected = 0
     denied = False
-    for resource in resources:
-        spec = _spec(resource)
-        if spec is None:
-            continue
-        if collected >= METRIC_LIMIT:
+    measurable = [(resource, spec) for resource in resources if (spec := _spec(resource)) is not None]
+    measurable.sort(key=lambda item: 0 if _measured_first(item[0]) else 1)
+    for resource, spec in measurable:
+        if not _measured_first(resource) and collected >= METRIC_LIMIT:
             return metrics, {
                 "service": "cloudwatch",
-                "error": f"Metrics were collected for the first {METRIC_LIMIT} eligible resources. The rest were not measured.",
+                "error": f"Metrics were collected for the first {METRIC_LIMIT} other resources. Load balancers and databases were still measured.",
             }
-        collected += 1
+        if not _measured_first(resource):
+            collected += 1
         for namespace, metric_name, dimension in spec:
             try:
                 payload = cloudwatch.get_metric_statistics(
@@ -39,7 +39,7 @@ def collect_metrics(cloudwatch, resources: list[dict], *, now: datetime | None =
                     StartTime=start,
                     EndTime=end,
                     Period=86400,
-                    Statistics=["Average", "Minimum", "Maximum", "SampleCount"],
+                    Statistics=["Average", "Sum", "Minimum", "Maximum", "SampleCount"],
                 )
             except ClientError as exc:
                 logger.exception("CloudWatch read failed")
@@ -55,6 +55,8 @@ def collect_metrics(cloudwatch, resources: list[dict], *, now: datetime | None =
             if not points:
                 continue
             averages = [point["Average"] for point in points if point.get("Average") is not None]
+            if not averages:
+                averages = [point["Sum"] for point in points if point.get("Sum") is not None]
             minimums = [point["Minimum"] for point in points if point.get("Minimum") is not None]
             maximums = [point["Maximum"] for point in points if point.get("Maximum") is not None]
             samples = [point.get("SampleCount") or 0 for point in points]
@@ -75,6 +77,18 @@ def collect_metrics(cloudwatch, resources: list[dict], *, now: datetime | None =
     return metrics, None
 
 
+def _measured_first(resource: dict) -> bool:
+    return resource.get("service") == "RDS" or resource.get("resource_type") == "load_balancer"
+
+
+def _balancer_dimension(resource_id: str) -> str | None:
+    marker = ":loadbalancer/"
+    if marker not in resource_id:
+        return None
+    value = resource_id.split(marker, 1)[1]
+    return value or None
+
+
 def _spec(resource: dict) -> list[tuple[str, str, dict]] | None:
     resource_id = resource.get("resource_id")
     if not resource_id:
@@ -86,6 +100,20 @@ def _spec(resource: dict) -> list[tuple[str, str, dict]] | None:
             ("AWS/EC2", "NetworkIn", dimension),
             ("AWS/EC2", "NetworkOut", dimension),
         ]
+    if resource.get("resource_type") == "load_balancer":
+        dimension_value = _balancer_dimension(str(resource_id))
+        if dimension_value is None:
+            return None
+        kind = dimension_value.split("/", 1)[0]
+        if kind == "app":
+            namespace, metric_name = "AWS/ApplicationELB", "RequestCount"
+        elif kind == "net":
+            namespace, metric_name = "AWS/NetworkELB", "ActiveFlowCount"
+        elif kind == "gwy":
+            namespace, metric_name = "AWS/GatewayELB", "ActiveFlowCount"
+        else:
+            return None
+        return [(namespace, metric_name, {"Name": "LoadBalancer", "Value": dimension_value})]
     if resource.get("service") == "RDS":
         dimension = {"Name": "DBInstanceIdentifier", "Value": resource_id}
         return [("AWS/RDS", "CPUUtilization", dimension), ("AWS/RDS", "DatabaseConnections", dimension)]

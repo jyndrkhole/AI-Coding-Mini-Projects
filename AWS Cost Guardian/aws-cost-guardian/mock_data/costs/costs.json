@@ -4,6 +4,16 @@
   "previous_month": "2026-08",
   "current_month_total": 18420,
   "previous_month_total": 15870,
+  "forecast": {
+    "month": "2026-09",
+    "amount": 18420
+  },
+  "linked_accounts": [
+    {"account_id": "123456789012", "name": "demo-finops", "month": "2026-09", "amount": 11052},
+    {"account_id": "111122223333", "name": "demo-client", "month": "2026-09", "amount": 7368},
+    {"account_id": "123456789012", "name": "demo-finops", "month": "2026-08", "amount": 9522},
+    {"account_id": "111122223333", "name": "demo-client", "month": "2026-08", "amount": 6348}
+  ],
   "optimization_score": 68,
   "account": {
     "aws_account_id": "123456789012",

@@ -50,9 +50,12 @@ def cost_explorer(
     end: date | None = None,
     service: str | None = None,
     region: str | None = None,
+    linked_account: str | None = None,
     session: Session = Depends(get_db),
 ) -> CostExplorerResponse:
-    return CostExplorerResponse(**get_cost_explorer(session, start, end, service or None, region or None))
+    return CostExplorerResponse(
+        **get_cost_explorer(session, start, end, service or None, region or None, linked_account or None)
+    )
 
 
 @router.get("/costs/pricing", response_model=PriceQuoteResponse)

@@ -16,5 +16,5 @@ def aws_account(session: Session = Depends(get_db)) -> AccountResponse:
 
 
 @router.post("/aws/scan", response_model=ScanResponse)
-def aws_scan(session: Session = Depends(get_db)) -> ScanResponse:
-    return ScanResponse(**run_scan(session))
+def aws_scan(include_inventory: bool = True, session: Session = Depends(get_db)) -> ScanResponse:
+    return ScanResponse(**run_scan(session, include_inventory=include_inventory))

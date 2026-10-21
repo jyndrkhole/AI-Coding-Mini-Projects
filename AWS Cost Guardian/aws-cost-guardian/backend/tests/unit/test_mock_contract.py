@@ -42,6 +42,12 @@ def test_demo_cost_totals_match_the_spec() -> None:
     previous_usage = sum(Decimal(str(row["amount"])) for row in costs["usage"] if row["month"] == previous)
     assert daily == services == regions == usage == Decimal("18420")
     assert previous_services == previous_usage == Decimal("15870")
+    assert costs["forecast"]["month"] == current
+    assert Decimal(str(costs["forecast"]["amount"])) == Decimal("18420")
+    linked_current = sum(Decimal(str(row["amount"])) for row in costs["linked_accounts"] if row["month"] == current)
+    linked_previous = sum(Decimal(str(row["amount"])) for row in costs["linked_accounts"] if row["month"] == previous)
+    assert linked_current == Decimal("18420")
+    assert linked_previous == Decimal("15870")
     assert costs["optimization_score"] == 68
     assert costs["account"]["aws_account_id"] == "123456789012"
 

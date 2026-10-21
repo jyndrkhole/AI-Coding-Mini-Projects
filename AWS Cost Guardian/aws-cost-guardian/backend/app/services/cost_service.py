@@ -193,6 +193,164 @@ def _usage_key(row: CostRecord) -> tuple[str, str] | None:
     return (row.service, row.usage_type)
 
 
+def _forecast_component(session: Session, account_id: int, month_start: date, usage_type: str):
+    month_end = _next_month(month_start)
+    rows = (
+        session.query(CostRecord)
+        .filter(
+            CostRecord.account_id == account_id,
+            CostRecord.source == "forecast",
+            CostRecord.usage_type == usage_type,
+            CostRecord.date >= month_start,
+            CostRecord.date < month_end,
+        )
+        .all()
+    )
+    if not rows:
+        return None
+    return sum((as_decimal(row.amount) for row in rows), Decimal("0.00"))
+
+
+def _forecast_summary(session: Session, account_id: int, month_start: date) -> dict:
+    forecast = _forecast_component(session, account_id, month_start, "mean")
+    if forecast is None:
+        return {
+            "forecasted_monthly_cost": None,
+            "forecast_available": False,
+            "forecast_label": "Cost Explorer did not return a forecast for this month.",
+            "forecast_lower_bound": None,
+            "forecast_upper_bound": None,
+        }
+    lower = _forecast_component(session, account_id, month_start, "lower")
+    upper = _forecast_component(session, account_id, month_start, "upper")
+    return {
+        "forecasted_monthly_cost": float(forecast),
+        "forecast_available": True,
+        "forecast_label": "Cost Explorer forecast for this month. Estimate, not a guaranteed bill.",
+        "forecast_lower_bound": None if lower is None else float(lower),
+        "forecast_upper_bound": None if upper is None else float(upper),
+    }
+
+
+def _linked_accounts(
+    session: Session,
+    guardian_id: int,
+    login_account_id: str,
+    focus: date,
+    previous: date,
+    selected_service: str | None = None,
+) -> list[dict]:
+    name_rows = (
+        session.query(CostRecord)
+        .filter(CostRecord.account_id == guardian_id, CostRecord.source == "account")
+        .all()
+    )
+    names: dict[str, str] = {}
+    known: set[str] = set()
+    for row in name_rows:
+        acct = row.service
+        if acct in {None, "", "all"}:
+            continue
+        known.add(acct)
+        if row.usage_type:
+            names[acct] = row.usage_type
+    if selected_service:
+        rows = (
+            session.query(CostRecord)
+            .filter(
+                CostRecord.account_id == guardian_id,
+                CostRecord.source == "account_service",
+                CostRecord.service == selected_service,
+            )
+            .all()
+        )
+    else:
+        rows = name_rows
+    grouped: dict[str, dict[str, object]] = {
+        acct: {"current": as_decimal(0), "previous": as_decimal(0)} for acct in known
+    }
+    for row in rows:
+        acct = row.usage_type if selected_service else row.service
+        if acct in {None, "", "all"}:
+            continue
+        if row.usage_type and not selected_service:
+            names[acct] = row.usage_type
+        bucket = grouped.setdefault(acct, {"current": as_decimal(0), "previous": as_decimal(0)})
+        month = _as_date(row.date).replace(day=1)
+        amount = as_decimal(row.amount)
+        if month == focus:
+            bucket["current"] = as_decimal(bucket["current"]) + amount
+        elif month == previous:
+            bucket["previous"] = as_decimal(bucket["previous"]) + amount
+    items = []
+    for acct, bucket in grouped.items():
+        current_amount = as_decimal(bucket["current"])
+        previous_amount = as_decimal(bucket["previous"])
+        change, percent = month_over_month(current_amount, previous_amount)
+        items.append(
+            {
+                "account_id": acct,
+                "account_name": names.get(acct) or None,
+                "is_this_login": acct == login_account_id,
+                "current": float(current_amount),
+                "previous": float(previous_amount),
+                "change": float(change),
+                "change_percent": None if percent is None else float(percent),
+            }
+        )
+    items.sort(key=lambda item: (not item["is_this_login"], -item["current"]))
+    return items
+
+
+def _account_service_comparison(
+    session: Session,
+    guardian_id: int,
+    focus: date,
+    previous: date,
+    linked_account: str,
+    selected_service: str | None,
+) -> list[dict]:
+    rows = (
+        session.query(CostRecord)
+        .filter(
+            CostRecord.account_id == guardian_id,
+            CostRecord.source == "account_service",
+            CostRecord.usage_type == linked_account,
+        )
+        .all()
+    )
+    grouped: dict[str, dict[str, object]] = {}
+    for row in rows:
+        label = row.service
+        if label in {None, "", "all"}:
+            continue
+        if selected_service and label != selected_service:
+            continue
+        bucket = grouped.setdefault(label, {"current": as_decimal(0), "previous": as_decimal(0)})
+        month = _as_date(row.date).replace(day=1)
+        amount = as_decimal(row.amount)
+        if month == focus:
+            bucket["current"] = as_decimal(bucket["current"]) + amount
+        elif month == previous:
+            bucket["previous"] = as_decimal(bucket["previous"]) + amount
+    items = []
+    for label, bucket in grouped.items():
+        current_amount = as_decimal(bucket["current"])
+        previous_amount = as_decimal(bucket["previous"])
+        change, percent = month_over_month(current_amount, previous_amount)
+        items.append(
+            {
+                "service": label,
+                "current": float(current_amount),
+                "previous": float(previous_amount),
+                "change": float(change),
+                "change_percent": None if percent is None else float(percent),
+            }
+        )
+    items.sort(key=lambda item: item["current"], reverse=True)
+    return items
+
+
 def get_cost_summary(session: Session) -> dict:
     account = require_account(session)
     current = _current_month(session, account.id)
@@ -200,6 +358,7 @@ def get_cost_summary(session: Session) -> dict:
     current_total = _sum_source(session, account.id, "service", current)
     previous_total = _sum_source(session, account.id, "service", previous)
     change, percent = month_over_month(current_total, previous_total)
+    linked = _linked_accounts(session, account.id, account.aws_account_id, current, previous)
     return {
         "currency": _currency(session, account.id),
         "current_period_label": _period_label(current),
@@ -208,7 +367,10 @@ def get_cost_summary(session: Session) -> dict:
         "previous_monthly_cost": float(previous_total),
         "mom_change_amount": float(change),
         "mom_change_percent": None if percent is None else float(percent),
+        "cost_scope_label": "Organization unblended cost" if len(linked) > 1 else "Account unblended cost",
+        "linked_accounts": linked,
         "mock_aws": get_settings().mock_aws,
+        **_forecast_summary(session, account.id, current),
         **_history(session, account.id, current),
     }
 
@@ -415,13 +577,38 @@ def _monthly_series(
     end: date,
     service: str | None,
     region: str | None,
+    linked_account: str | None = None,
 ) -> list[dict]:
-    if service:
-        source, attribute, selected = "service", "service", service
+    if linked_account and service:
+        source = "account_service"
+
+        def keep(row: CostRecord) -> bool:
+            return row.usage_type == linked_account and row.service == service
+
+    elif linked_account:
+        source = "account"
+
+        def keep(row: CostRecord) -> bool:
+            return row.service == linked_account
+
+    elif service:
+        source = "service"
+
+        def keep(row: CostRecord) -> bool:
+            return row.service == service and row.service not in {None, "", "all"}
+
     elif region:
-        source, attribute, selected = "region", "region", region
+        source = "region"
+
+        def keep(row: CostRecord) -> bool:
+            return row.region == region and row.region not in {None, "", "all"}
+
     else:
-        source, attribute, selected = "service", "service", None
+        source = "service"
+
+        def keep(row: CostRecord) -> bool:
+            return row.service not in {None, "", "all"}
+
     rows = (
         session.query(CostRecord)
         .filter(CostRecord.account_id == account_id, CostRecord.source == source)
@@ -429,9 +616,7 @@ def _monthly_series(
     )
     totals: dict[date, object] = {}
     for row in rows:
-        if selected and getattr(row, attribute) != selected:
-            continue
-        if getattr(row, attribute) in {None, "", "all"}:
+        if not keep(row):
             continue
         month = _as_date(row.date).replace(day=1)
         if not _month_overlaps(month, start, end):
@@ -443,12 +628,50 @@ def _monthly_series(
     ]
 
 
+def _daily_rows(
+    session: Session,
+    account_id: int,
+    range_start: date,
+    range_end: date,
+    selected_service: str | None,
+) -> tuple[list, bool]:
+    if selected_service:
+        rows = (
+            session.query(CostRecord)
+            .filter(
+                CostRecord.account_id == account_id,
+                CostRecord.source == "daily_service",
+                CostRecord.service == selected_service,
+                CostRecord.date >= range_start,
+                CostRecord.date <= range_end,
+            )
+            .order_by(CostRecord.date)
+            .all()
+        )
+        if rows:
+            return rows, True
+        return [], False
+    rows = (
+        session.query(CostRecord)
+        .filter(
+            CostRecord.account_id == account_id,
+            CostRecord.source == "daily",
+            CostRecord.date >= range_start,
+            CostRecord.date <= range_end,
+        )
+        .order_by(CostRecord.date)
+        .all()
+    )
+    return rows, False
+
+
 def get_cost_explorer(
     session: Session,
     start: date | None,
     end: date | None,
     service: str | None,
     region: str | None,
+    linked_account: str | None = None,
 ) -> dict:
     account = require_account(session)
     current = _current_month(session, account.id)
@@ -458,26 +681,50 @@ def get_cost_explorer(
         raise FinOpsError("Start date must be on or before the end date.", status_code=400)
     selected_service = service or None
     selected_region = region or None
+    selected_account = linked_account or None
     focus = range_end.replace(day=1)
     previous = _previous_month(focus)
-    daily_rows = (
-        session.query(CostRecord)
-        .filter(
-            CostRecord.account_id == account.id,
-            CostRecord.source == "daily",
-            CostRecord.date >= range_start,
-            CostRecord.date <= range_end,
-        )
-        .order_by(CostRecord.date)
-        .all()
+    daily_rows, daily_filtered = _daily_rows(
+        session, account.id, range_start, range_end, selected_service
+    )
+    linked_all = _linked_accounts(session, account.id, account.aws_account_id, focus, previous)
+    linked = _linked_accounts(
+        session, account.id, account.aws_account_id, focus, previous, selected_service
     )
     daily_note = None
-    if selected_service or selected_region:
+    if selected_service and daily_filtered:
+        daily_note = "Daily cost is for the selected service."
+    elif selected_service:
         daily_note = (
-            "Daily cost is the account total. Service and region filters apply to their own "
-            "breakdowns, which are collected separately."
+            "Daily cost by service is not stored yet. Click Refresh costs, then filter again. "
+            "Chargeback and service amounts below are already for this service."
         )
+    elif selected_region:
+        daily_note = (
+            "Daily cost is the organization total. The region filter applies to regional distribution "
+            "and monthly cost."
+        )
+    if selected_account:
+        extra = (
+            "Chargeback, monthly cost, and service amounts are for the selected account. "
+            "Daily cost stays organization-wide unless a service is also selected."
+        )
+        daily_note = f"{daily_note} {extra}".strip() if daily_note else extra
+        services = _account_service_comparison(
+            session, account.id, focus, previous, selected_account, selected_service
+        )
+        usage_types: list[dict] = []
+    else:
+        services = _comparison(session, account.id, "service", "service", focus, previous, selected_service)
+        usage_types = _usage_comparison(session, account.id, focus, previous, selected_service)
     settings = get_settings()
+    account_note = None
+    if len(linked) > 1:
+        account_note = (
+            "AWS invoices the management account for the full organization total. "
+            "Charge each linked account its own row. The row marked This account is usage "
+            "in the login you connected; that part is typically yours unless you allocate it."
+        )
     return {
         "currency": _currency(session, account.id),
         "source_label": "Demo dataset" if settings.mock_aws else "Cost Explorer",
@@ -485,21 +732,27 @@ def get_cost_explorer(
         "end": range_end.isoformat(),
         "service": selected_service,
         "region": selected_region,
+        "linked_account": selected_account,
         "current_period_label": _period_label(focus),
         "previous_period_label": _period_label(previous),
         "available_services": _distinct_labels(session, account.id, "service", "service"),
         "available_regions": _distinct_labels(session, account.id, "region", "region"),
+        "available_accounts": [item["account_id"] for item in linked_all],
         "daily_note": daily_note,
         "monthly_note": (
             "Service, region, and usage amounts are full-month totals. A shorter date range "
             "filters the daily chart and does not prorate those months."
         ),
+        "account_note": account_note,
         "pricing_note": PricingService().quote("", "", "").get("reason"),
         "daily": [
             {"date": _as_date(row.date).isoformat(), "amount": float(as_decimal(row.amount))} for row in daily_rows
         ],
-        "monthly": _monthly_series(session, account.id, range_start, range_end, selected_service, selected_region),
-        "services": _comparison(session, account.id, "service", "service", focus, previous, selected_service),
+        "monthly": _monthly_series(
+            session, account.id, range_start, range_end, selected_service, selected_region, selected_account
+        ),
+        "services": services,
         "regions": _comparison(session, account.id, "region", "region", focus, previous, selected_region),
-        "usage_types": _usage_comparison(session, account.id, focus, previous, selected_service),
+        "usage_types": usage_types,
+        "linked_accounts": linked,
     }

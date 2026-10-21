@@ -1,7 +1,7 @@
 """Load the demo account into the database when mock mode is on."""
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 
 from sqlalchemy.orm import Session
 
@@ -22,6 +22,24 @@ RESOURCE_FILES = (
     "resources/lambda.json",
     "resources/nat.json",
 )
+
+
+def _split_amount(amount: Decimal, weights: list[tuple[str, Decimal]]) -> list[tuple[str, Decimal]]:
+    total = sum((as_decimal(weight) for _, weight in weights), Decimal("0.00"))
+    leftover = as_decimal(amount)
+    if not weights:
+        return []
+    if total == 0:
+        return [(key, Decimal("0.00")) for key, _ in weights]
+    parts: list[tuple[str, Decimal]] = []
+    for index, (key, weight) in enumerate(weights):
+        if index == len(weights) - 1:
+            parts.append((key, leftover))
+            continue
+        part = (as_decimal(amount) * as_decimal(weight) / total).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+        leftover -= part
+        parts.append((key, part))
+    return parts
 
 
 def _month_total(rows: list[dict], month: str) -> Decimal:
@@ -48,6 +66,10 @@ def _require_balanced(costs: dict) -> None:
     previous_expected = as_decimal(costs["previous_month_total"])
     if daily != expected or previous_services != previous_expected:
         raise ValueError("Demo cost totals do not match the declared month totals.")
+    linked = costs.get("linked_accounts") or []
+    if linked:
+        if _month_total(linked, current) != expected or _month_total(linked, previous) != previous_expected:
+            raise ValueError("Demo linked-account totals do not match the declared month totals.")
 
 
 def seed_mock_data() -> None:
@@ -121,6 +143,92 @@ def demo_cost_lines(costs: dict) -> list[CostLine]:
                 source="usage",
             )
         )
+    forecast = costs.get("forecast") or {}
+    month = forecast.get("month")
+    amount = forecast.get("amount")
+    if month is not None and amount is not None:
+        forecast_date = datetime.fromisoformat(f"{month}-01").date()
+        lines.append(
+            CostLine(
+                date=forecast_date,
+                service="all",
+                region="all",
+                usage_type="mean",
+                amount=as_decimal(amount),
+                currency=currency,
+                source="forecast",
+            )
+        )
+        if forecast.get("lower_bound") is not None:
+            lines.append(
+                CostLine(
+                    date=forecast_date,
+                    service="all",
+                    region="all",
+                    usage_type="lower",
+                    amount=as_decimal(forecast["lower_bound"]),
+                    currency=currency,
+                    source="forecast",
+                )
+            )
+        if forecast.get("upper_bound") is not None:
+            lines.append(
+                CostLine(
+                    date=forecast_date,
+                    service="all",
+                    region="all",
+                    usage_type="upper",
+                    amount=as_decimal(forecast["upper_bound"]),
+                    currency=currency,
+                    source="forecast",
+                )
+            )
+    linked = costs.get("linked_accounts") or []
+    for row in linked:
+        lines.append(
+            CostLine(
+                date=datetime.fromisoformat(f"{row['month']}-01").date(),
+                service=row["account_id"],
+                region="all",
+                usage_type=row.get("name") or "",
+                amount=as_decimal(row["amount"]),
+                currency=currency,
+                source="account",
+            )
+        )
+    current = costs["current_month"]
+    service_weights = [
+        (row["service"], as_decimal(row["amount"])) for row in costs["services"] if row["month"] == current
+    ]
+    for point in costs["daily"]:
+        for service, amount in _split_amount(as_decimal(point["amount"]), service_weights):
+            lines.append(
+                CostLine(
+                    date=datetime.fromisoformat(point["date"]).date(),
+                    service=service,
+                    region="all",
+                    usage_type="",
+                    amount=amount,
+                    currency=currency,
+                    source="daily_service",
+                )
+            )
+    accounts_by_month: dict[str, list[tuple[str, Decimal]]] = {}
+    for row in linked:
+        accounts_by_month.setdefault(row["month"], []).append((row["account_id"], as_decimal(row["amount"])))
+    for row in costs["services"]:
+        for account_id, amount in _split_amount(as_decimal(row["amount"]), accounts_by_month.get(row["month"], [])):
+            lines.append(
+                CostLine(
+                    date=datetime.fromisoformat(f"{row['month']}-01").date(),
+                    service=row["service"],
+                    region="all",
+                    usage_type=account_id,
+                    amount=amount,
+                    currency=currency,
+                    source="account_service",
+                )
+            )
     return lines
 
 

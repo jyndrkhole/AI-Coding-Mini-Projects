@@ -19,6 +19,16 @@ class MonthCostPoint(BaseModel):
     other_component_count: int = 0
 
 
+class LinkedAccountCost(BaseModel):
+    account_id: str
+    account_name: str | None
+    is_this_login: bool
+    current: float
+    previous: float
+    change: float
+    change_percent: float | None
+
+
 class CostSummaryResponse(BaseModel):
     currency: str
     current_period_label: str
@@ -27,6 +37,13 @@ class CostSummaryResponse(BaseModel):
     previous_monthly_cost: float
     mom_change_amount: float
     mom_change_percent: float | None
+    forecasted_monthly_cost: float | None
+    forecast_available: bool
+    forecast_label: str
+    forecast_lower_bound: float | None
+    forecast_upper_bound: float | None
+    cost_scope_label: str
+    linked_accounts: list[LinkedAccountCost]
     mock_aws: bool
     history_note: str
     prior_months_average: float | None
@@ -97,18 +114,22 @@ class CostExplorerResponse(BaseModel):
     end: str
     service: str | None
     region: str | None
+    linked_account: str | None = None
     current_period_label: str
     previous_period_label: str
     available_services: list[str]
     available_regions: list[str]
+    available_accounts: list[str] = []
     daily_note: str | None
     monthly_note: str
+    account_note: str | None = None
     pricing_note: str | None
     daily: list[DailyCostPoint]
     monthly: list[MonthlyCostPoint]
     services: list[ServiceCost]
     regions: list[RegionCost]
     usage_types: list[UsageCost]
+    linked_accounts: list[LinkedAccountCost] = []
 
 
 class PriceQuoteResponse(BaseModel):

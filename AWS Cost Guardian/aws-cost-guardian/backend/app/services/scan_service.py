@@ -42,7 +42,35 @@ def _skipped() -> list[dict]:
     return [_step(service, "skipped", detail=detail) for service, detail in SKIPPED_STEPS]
 
 
-def run_scan(session: Session, *, sts_client=None, ce_client=None, today=None) -> dict:
+def _forecast_lines(reader: CostExplorerReader, today) -> tuple[list, dict]:
+    try:
+        lines = reader.collect_forecast(today)
+    except ClientError as exc:
+        logger.exception("Cost forecast collection failed")
+        code = exc.response.get("Error", {}).get("Code", "")
+        if code in {"AccessDeniedException", "AccessDenied"}:
+            message = "Missing IAM permission. Cost forecast requires ce:GetCostForecast."
+        elif code == "DataUnavailableException":
+            message = "Cost Explorer did not return a forecast for this month."
+        else:
+            message = "Cost forecast unavailable."
+        return [], _step("cost_forecast", "error", error=message)
+    except Exception:
+        logger.exception("Cost forecast collection failed")
+        return [], _step("cost_forecast", "error", error="Cost forecast unavailable.")
+    if not lines:
+        return [], _step("cost_forecast", "skipped", detail="Cost Explorer did not return a forecast for this month.")
+    return lines, _step("cost_forecast", "ok", detail="Stored the Cost Explorer month-end forecast.")
+
+
+def run_scan(
+    session: Session,
+    *,
+    sts_client=None,
+    ce_client=None,
+    today=None,
+    include_inventory: bool = True,
+) -> dict:
     settings = get_settings()
     today = today or datetime.now(timezone.utc).date()
     steps: list[dict] = []
@@ -94,7 +122,10 @@ def run_scan(session: Session, *, sts_client=None, ce_client=None, today=None) -
 
     add(_step("sts", "ok", detail=f"Account {account_id}"))
     try:
-        lines = CostExplorerReader(ce_client).collect(today)
+        reader = CostExplorerReader(ce_client)
+        lines = reader.collect(today)
+        forecast_lines, forecast_step = _forecast_lines(reader, today)
+        lines.extend(forecast_lines)
         account = session.query(Account).filter_by(aws_account_id=account_id).one_or_none()
         if account is None:
             account = Account(
@@ -112,6 +143,7 @@ def run_scan(session: Session, *, sts_client=None, ce_client=None, today=None) -
         account.last_scan_at = datetime.now(timezone.utc)
         session.commit()
         add(_step("cost_explorer", "ok", detail=f"Stored {len(lines)} cost rows from Cost Explorer."))
+        add(forecast_step)
     except ClientError as exc:
         session.rollback()
         logger.exception("Cost Explorer collection failed")
@@ -121,12 +153,17 @@ def run_scan(session: Session, *, sts_client=None, ce_client=None, today=None) -
         else:
             message = "Cost Explorer unavailable."
         add(_step("cost_explorer", "error", error=message))
+        add(_step("cost_forecast", "skipped", detail="Forecast was not requested because Cost Explorer usage was not stored."))
     except Exception:
         session.rollback()
         logger.exception("Cost Explorer collection failed")
         add(_step("cost_explorer", "error", error="Cost Explorer unavailable."))
+        add(_step("cost_forecast", "skipped", detail="Forecast was not requested because Cost Explorer usage was not stored."))
 
-    _collect_evidence(session, account_id, add)
+    if include_inventory:
+        _collect_evidence(session, account_id, add)
+    else:
+        steps.extend(_skipped())
     return {"status": status, "steps": steps}
 
 

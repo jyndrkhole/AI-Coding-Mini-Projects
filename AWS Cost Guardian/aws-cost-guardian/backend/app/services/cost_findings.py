@@ -18,6 +18,15 @@ from app.services.cost_service import (
 
 MINIMUM_MONTHLY_COST = Decimal("50")
 REVIEW_LIMIT = 8
+CLOUDWATCH_TOKENS = (
+    "MetricMonitorUsage",
+    "AlarmMonitorUsage",
+    "DatabaseInsights",
+    "VendedLog",
+    "TimedStorage-ByteHrs",
+    "DataProcessing-Bytes",
+    "CW:Requests",
+)
 
 UPPER_BOUND = (
     "Estimated potential savings equals this full-month charge if the design changes and this usage stops. "
@@ -241,6 +250,32 @@ REVIEW_PATTERNS = (
 )
 
 
+def _is_cloudwatch(service_name: str, usage_type: str) -> bool:
+    compact = service_name.lower().replace(" ", "")
+    if "amazoncloudwatch" not in compact:
+        return False
+    return any(token in usage_type for token in CLOUDWATCH_TOKENS)
+
+
+def _cloudwatch_finding(amount: Decimal) -> tuple:
+    amount = as_decimal(amount)
+    return (
+        amount,
+        "CloudWatch",
+        "REVIEW",
+        "Review CloudWatch",
+        "CloudWatch",
+        "{period} CloudWatch cost {amount}. This covers custom metrics, alarms, logs, and database insights. "
+        "No saving is quoted. A metric or alarm that still pages someone is not waste.",
+        "Which custom metrics, alarms, and log groups are still used?",
+        (
+            "List custom metrics, alarms, and log groups, and mark the ones no dashboard or alarm still reads.",
+            "Compare this {amount} charge with vended logs and database insights before treating the whole line as removable.",
+            "Remove a metric, alarm, or log group only after the owner confirms it is unused.",
+        ),
+    )
+
+
 def _match(usage_type: str) -> tuple[str, str, str, str, str, tuple[str, ...]] | None:
     for token, title, service, brief, ask, steps in ARCHITECTURE_PATTERNS:
         if token in usage_type:
@@ -273,8 +308,12 @@ def build_cost_findings(
     currency: str = "USD",
 ) -> list[dict]:
     matched: list[tuple] = []
+    cloudwatch_amount = Decimal("0.00")
     for service_name, usage_type, amount in rows:
         amount = as_decimal(amount)
+        if _is_cloudwatch(service_name, usage_type):
+            cloudwatch_amount += amount
+            continue
         if amount < MINIMUM_MONTHLY_COST:
             continue
         found = _match(usage_type)
@@ -289,6 +328,8 @@ def build_cost_findings(
     cleanup = [item for item in matched if item[2] == "CLEANUP"]
     review = [item for item in matched if item[2] == "REVIEW"][:REVIEW_LIMIT]
     selected = architecture + cleanup + review
+    if cloudwatch_amount > 0:
+        selected.append(_cloudwatch_finding(cloudwatch_amount))
     findings = []
     for index, (amount, usage_type, action_type, title, service, brief, ask, steps) in enumerate(selected, start=1):
         estimated = amount if action_type == "ARCHITECTURE" else as_decimal(0)

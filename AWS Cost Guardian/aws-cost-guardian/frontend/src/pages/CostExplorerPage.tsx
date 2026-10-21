@@ -15,18 +15,28 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { categoryChartHeight, CategoryTick, useChartColors, useChartTooltip, zeroValueAxis } from "../components/chartLayout";
 import { PageHeaderAction, usePageHeader } from "../layouts/pageHeader";
 import { apiGet, apiPost } from "../services/api";
-import type { CostExplorer, ScanResult } from "../types";
+import type { CostExplorer, LinkedAccountCost, ScanResult } from "../types";
 import { formatCompactMoney, formatPercent } from "../utils/format";
 
-type Filters = { start: string; end: string; service: string; region: string };
+type Filters = { start: string; end: string; service: string; region: string; linked_account: string };
 
-const emptyFilters: Filters = { start: "", end: "", service: "", region: "" };
+const emptyFilters: Filters = { start: "", end: "", service: "", region: "", linked_account: "" };
+
+function withVisibleDates(filters: Filters, data?: CostExplorer): Filters {
+  if (filters.start || !data) return filters;
+  return { ...filters, start: data.start, end: data.end };
+}
+
+function accountOptionLabel(row: LinkedAccountCost): string {
+  if (row.is_this_login) return `This account · ${row.account_name || row.account_id}`;
+  return row.account_name ? `${row.account_name} · ${row.account_id}` : row.account_id;
+}
 
 function formatAmount(value: number, currency: string): string {
   return new Intl.NumberFormat(currency === "INR" ? "en-IN" : "en-US", {
@@ -47,14 +57,14 @@ export function CostExplorerPage() {
   const chart = useChartColors();
   const tooltip = useChartTooltip();
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState<Filters>(emptyFilters);
-  const [applied, setApplied] = useState<Filters>(emptyFilters);
+  const [filters, setFilters] = useState<Filters>(emptyFilters);
   const explorer = useQuery({
-    queryKey: ["costs", "explorer", applied],
-    queryFn: () => apiGet<CostExplorer>(`/api/costs/explorer${queryString(applied)}`),
+    queryKey: ["costs", "explorer", filters],
+    queryFn: () => apiGet<CostExplorer>(`/api/costs/explorer${queryString(filters)}`),
+    placeholderData: keepPreviousData,
   });
   const scan = useMutation({
-    mutationFn: () => apiPost<ScanResult>("/api/aws/scan"),
+    mutationFn: () => apiPost<ScanResult>("/api/aws/scan?include_inventory=false"),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["costs"] });
       await queryClient.invalidateQueries({ queryKey: ["account"] });
@@ -62,7 +72,19 @@ export function CostExplorerPage() {
   });
 
   const data = explorer.data;
-  const filters = draft.start ? draft : data ? { start: data.start, end: data.end, service: "", region: "" } : emptyFilters;
+  const visible = withVisibleDates(filters, data);
+  const serviceRows =
+    data && visible.service && !visible.linked_account
+      ? data.services.filter((row) => row.service === visible.service)
+      : data?.services ?? [];
+  const regionRows = data && visible.region ? data.regions.filter((row) => row.region === visible.region) : data?.regions ?? [];
+  const usageRows =
+    data && visible.service && !visible.linked_account
+      ? data.usage_types.filter((row) => row.service === visible.service)
+      : data?.usage_types ?? [];
+  function patch(update: Partial<Filters>) {
+    setFilters((current) => ({ ...withVisibleDates(current, data), ...update }));
+  }
   usePageHeader(
     "Cost Explorer",
     data
@@ -84,30 +106,34 @@ export function CostExplorerPage() {
 
       <Card>
         <CardContent>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
+          <Stack direction="row" flexWrap="wrap" useFlexGap spacing={2} alignItems="center">
             <TextField
               label="Start"
               type="date"
               size="small"
-              value={filters.start}
-              onChange={(event) => setDraft({ ...filters, start: event.target.value })}
+              value={visible.start}
+              onChange={(event) => patch({ start: event.target.value })}
               InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 160 }}
             />
             <TextField
               label="End"
               type="date"
               size="small"
-              value={filters.end}
-              onChange={(event) => setDraft({ ...filters, end: event.target.value })}
+              value={visible.end}
+              onChange={(event) => patch({ end: event.target.value })}
               InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 160 }}
             />
             <TextField
               label="Service"
               select
               size="small"
-              value={filters.service}
-              onChange={(event) => setDraft({ ...filters, service: event.target.value })}
-              sx={{ minWidth: 180 }}
+              value={visible.service}
+              onChange={(event) => patch({ service: event.target.value })}
+              sx={{ minWidth: 220, flex: "1 1 220px" }}
+              InputLabelProps={{ shrink: true }}
+              SelectProps={{ displayEmpty: true }}
             >
               <MenuItem value="">All services</MenuItem>
               {(data?.available_services ?? []).map((service) => (
@@ -120,9 +146,11 @@ export function CostExplorerPage() {
               label="Region"
               select
               size="small"
-              value={filters.region}
-              onChange={(event) => setDraft({ ...filters, region: event.target.value })}
-              sx={{ minWidth: 180 }}
+              value={visible.region}
+              onChange={(event) => patch({ region: event.target.value })}
+              sx={{ minWidth: 180, flex: "1 1 180px" }}
+              InputLabelProps={{ shrink: true }}
+              SelectProps={{ displayEmpty: true }}
             >
               <MenuItem value="">All regions</MenuItem>
               {(data?.available_regions ?? []).map((region) => (
@@ -131,14 +159,30 @@ export function CostExplorerPage() {
                 </MenuItem>
               ))}
             </TextField>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setDraft(filters);
-                setApplied(filters);
-              }}
-            >
+            {(data?.linked_accounts ?? []).length > 1 ? (
+              <TextField
+                label="Account"
+                select
+                size="small"
+                value={visible.linked_account}
+                onChange={(event) => patch({ linked_account: event.target.value })}
+                sx={{ minWidth: 240, flex: "1 1 240px" }}
+                InputLabelProps={{ shrink: true }}
+                SelectProps={{ displayEmpty: true }}
+              >
+                <MenuItem value="">All accounts</MenuItem>
+                {(data?.linked_accounts ?? []).map((row) => (
+                  <MenuItem key={row.account_id} value={row.account_id}>
+                    {accountOptionLabel(row)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : null}
+            <Button variant="outlined" onClick={() => setFilters(visible)}>
               Apply
+            </Button>
+            <Button variant="contained" onClick={() => scan.mutate()} disabled={scan.isPending}>
+              {scan.isPending ? "Refreshing" : "Refresh costs"}
             </Button>
           </Stack>
         </CardContent>
@@ -148,10 +192,44 @@ export function CostExplorerPage() {
 
       {data ? (
         <>
+          {visible.service || visible.linked_account || visible.region ? (
+            <Alert severity="success">
+              Showing {visible.service || "all services"}
+              {visible.linked_account ? ` for account ${visible.linked_account}` : " across accounts"}
+              {visible.region ? ` in ${visible.region}` : ""}.
+            </Alert>
+          ) : null}
+          {data.account_note ? <Alert severity="info">{data.account_note}</Alert> : null}
+          {data.linked_accounts.length > 1 ? (
+            <>
+              <Typography variant="h6">
+                Chargeback by account{visible.service ? ` · ${visible.service}` : ""}
+              </Typography>
+              <ComparisonTable
+                rows={data.linked_accounts
+                  .filter((row) => {
+                    if (visible.linked_account && row.account_id !== visible.linked_account) return false;
+                    if (visible.service && row.current === 0 && row.previous === 0) return false;
+                    return true;
+                  })
+                  .map((row) => ({
+                    name: `${row.account_id}${row.account_name ? ` · ${row.account_name}` : ""}${row.is_this_login ? " (this account)" : " (linked)"}`,
+                    current: row.current,
+                    previous: row.previous,
+                    change: row.change,
+                    changePercent: row.change_percent,
+                  }))}
+                nameHeader="Account"
+                currentLabel={data.current_period_label}
+                previousLabel={data.previous_period_label}
+                currency={data.currency}
+              />
+            </>
+          ) : null}
           {data.daily_note ? <Alert severity="info">{data.daily_note}</Alert> : null}
           <Alert severity="info">{data.monthly_note}</Alert>
           <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", xl: "1.2fr 1fr" } }}>
-            <ChartCard title="Daily cost">
+            <ChartCard title={visible.service ? `Daily cost · ${visible.service}` : "Daily cost"}>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={data.daily} margin={{ right: 8, bottom: 8 }}>
                   <CartesianGrid stroke={chart.grid} vertical={false} />
@@ -167,7 +245,7 @@ export function CostExplorerPage() {
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
-            <ChartCard title="Monthly cost">
+            <ChartCard title={visible.service ? `Monthly cost · ${visible.service}` : "Monthly cost"}>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={data.monthly} margin={{ bottom: 24, right: 8 }}>
                   <CartesianGrid stroke={chart.grid} vertical={false} />
@@ -186,14 +264,14 @@ export function CostExplorerPage() {
           </Box>
           <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" } }}>
             <ChartCard title="Service distribution">
-              <ResponsiveContainer width="100%" height={categoryChartHeight(data.services.length)}>
-                <BarChart data={data.services} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
+              <ResponsiveContainer width="100%" height={categoryChartHeight(serviceRows.length)}>
+                <BarChart data={serviceRows} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
                   <CartesianGrid stroke={chart.grid} horizontal={false} />
                   <XAxis
                     type="number"
                     tickFormatter={(value: number) => formatCompactMoney(value, data.currency)}
                     tick={{ fontSize: 12 }}
-                    {...zeroValueAxis(data.services.map((row) => row.current))}
+                    {...zeroValueAxis(serviceRows.map((row) => row.current))}
                   />
                   <YAxis
                     type="category"
@@ -212,29 +290,35 @@ export function CostExplorerPage() {
               </ResponsiveContainer>
             </ChartCard>
             <ChartCard title="Regional distribution">
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart
-                  data={data.regions.filter((row) => row.current !== 0 || row.previous !== 0)}
-                  margin={{ bottom: 28, right: 8 }}
-                >
-                  <CartesianGrid stroke={chart.grid} vertical={false} />
-                  <XAxis dataKey="region" interval={0} angle={-28} textAnchor="end" height={52} tick={{ fontSize: 11 }} />
-                  <YAxis
-                    tickFormatter={(value: number) => formatCompactMoney(value, data.currency)}
-                    width={72}
-                    tick={{ fontSize: 12 }}
-                    {...zeroValueAxis(data.regions.map((row) => row.current))}
-                  />
-                  <Tooltip {...tooltip} formatter={(value) => formatAmount(Number(value ?? 0), data.currency)} />
-                  <Bar dataKey="current" fill={chart.secondary} isAnimationActive={false} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {visible.service ? (
+                <Typography variant="body2" color="text.secondary">
+                  Region is not split by service. Clear the service filter to see regional distribution.
+                </Typography>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart
+                    data={regionRows.filter((row) => row.current !== 0 || row.previous !== 0)}
+                    margin={{ bottom: 28, right: 8 }}
+                  >
+                    <CartesianGrid stroke={chart.grid} vertical={false} />
+                    <XAxis dataKey="region" interval={0} angle={-28} textAnchor="end" height={52} tick={{ fontSize: 11 }} />
+                    <YAxis
+                      tickFormatter={(value: number) => formatCompactMoney(value, data.currency)}
+                      width={72}
+                      tick={{ fontSize: 12 }}
+                      {...zeroValueAxis(regionRows.map((row) => row.current))}
+                    />
+                    <Tooltip {...tooltip} formatter={(value) => formatAmount(Number(value ?? 0), data.currency)} />
+                    <Bar dataKey="current" fill={chart.secondary} isAnimationActive={false} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </ChartCard>
           </Box>
 
           <Typography variant="h6">Service breakdown</Typography>
           <ComparisonTable
-            rows={data.services.map((row) => ({
+            rows={serviceRows.map((row) => ({
               name: row.service,
               current: row.current,
               previous: row.previous,
@@ -247,40 +331,44 @@ export function CostExplorerPage() {
             currency={data.currency}
           />
 
-          <Typography variant="h6">Usage types</Typography>
-          {data.pricing_note ? (
-            <Typography variant="body2" color="text.secondary">
-              {data.pricing_note}
-            </Typography>
+          {usageRows.length > 0 ? (
+            <>
+              <Typography variant="h6">Usage types</Typography>
+              {data.pricing_note ? (
+                <Typography variant="body2" color="text.secondary">
+                  {data.pricing_note}
+                </Typography>
+              ) : null}
+              <Card>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Service</TableCell>
+                      <TableCell>Usage type</TableCell>
+                      <TableCell align="right">{data.current_period_label}</TableCell>
+                      <TableCell align="right">{data.previous_period_label}</TableCell>
+                      <TableCell align="right">Change</TableCell>
+                      <TableCell>Price</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {usageRows.map((row) => (
+                      <TableRow key={`${row.service}-${row.usage_type}`}>
+                        <TableCell>{row.service}</TableCell>
+                        <TableCell>{row.usage_type}</TableCell>
+                        <TableCell align="right">{formatAmount(row.current, data.currency)}</TableCell>
+                        <TableCell align="right">{formatAmount(row.previous, data.currency)}</TableCell>
+                        <TableCell align="right">
+                          {formatSignedAmount(row.change, data.currency)} ({formatPercent(row.change_percent)})
+                        </TableCell>
+                        <TableCell>{row.pricing_available ? "Calculated" : "Not calculated"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </>
           ) : null}
-          <Card>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Service</TableCell>
-                  <TableCell>Usage type</TableCell>
-                  <TableCell align="right">{data.current_period_label}</TableCell>
-                  <TableCell align="right">{data.previous_period_label}</TableCell>
-                  <TableCell align="right">Change</TableCell>
-                  <TableCell>Price</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {data.usage_types.map((row) => (
-                  <TableRow key={`${row.service}-${row.usage_type}`}>
-                    <TableCell>{row.service}</TableCell>
-                    <TableCell>{row.usage_type}</TableCell>
-                    <TableCell align="right">{formatAmount(row.current, data.currency)}</TableCell>
-                    <TableCell align="right">{formatAmount(row.previous, data.currency)}</TableCell>
-                    <TableCell align="right">
-                      {formatSignedAmount(row.change, data.currency)} ({formatPercent(row.change_percent)})
-                    </TableCell>
-                    <TableCell>{row.pricing_available ? "Calculated" : "Not calculated"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
         </>
       ) : null}
     </Stack>
@@ -293,14 +381,20 @@ function queryString(filters: Filters): string {
   if (filters.end) params.set("end", filters.end);
   if (filters.service) params.set("service", filters.service);
   if (filters.region) params.set("region", filters.region);
+  if (filters.linked_account) params.set("linked_account", filters.linked_account);
   const value = params.toString();
   return value ? `?${value}` : "";
 }
 
 function ScanAlert({ result }: { result: ScanResult }) {
   const cost = result.steps.find((step) => step.service === "cost_explorer");
-  const severity = result.status === "completed" ? "success" : "warning";
-  return <Alert severity={severity}>{cost?.detail || cost?.error || "Cost refresh finished."}</Alert>;
+  const forecast = result.steps.find((step) => step.service === "cost_forecast");
+  const failed = cost?.status === "error";
+  const severity = failed ? "error" : cost?.status === "ok" ? "success" : "warning";
+  const parts = [cost?.detail || cost?.error || "Cost refresh finished."];
+  if (forecast?.status === "ok" && forecast.detail) parts.push(forecast.detail);
+  if (forecast?.status === "error" && forecast.error) parts.push(forecast.error);
+  return <Alert severity={severity}>{parts.join(" ")}</Alert>;
 }
 
 function ChartCard({ title, children }: { title: string; children: ReactNode }) {

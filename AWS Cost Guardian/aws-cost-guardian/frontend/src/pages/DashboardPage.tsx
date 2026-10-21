@@ -1,4 +1,4 @@
-import { Alert, Box, Card, CardContent, Skeleton, Stack, Typography } from "@mui/material";
+import { Alert, Box, Card, CardContent, Chip, Skeleton, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -60,19 +60,34 @@ export function DashboardPage() {
       {error ? <Alert severity="error">{error.message}</Alert> : null}
 
       {isLoading ? (
-        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(6, minmax(0, 1fr))" } }}>
-          {Array.from({ length: 6 }, (_, index) => (
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(4, minmax(0, 1fr))" } }}>
+          {Array.from({ length: 7 }, (_, index) => (
             <Skeleton key={index} variant="rounded" height={96} />
           ))}
         </Box>
       ) : null}
 
       {summary.data && savings.data && score.data ? (
-        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(6, minmax(0, 1fr))" } }}>
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(4, minmax(0, 1fr))" } }}>
           <KpiCard
             label="Current monthly cost"
             value={formatMoney(summary.data.current_monthly_cost, summary.data.currency)}
-            caption={summary.data.current_period_label}
+            caption={`${summary.data.cost_scope_label} · ${summary.data.current_period_label}`}
+          />
+          <KpiCard
+            label="Forecasted month-end"
+            value={
+              summary.data.forecast_available && summary.data.forecasted_monthly_cost !== null
+                ? formatMoney(summary.data.forecasted_monthly_cost, summary.data.currency)
+                : "Not available"
+            }
+            caption={
+              summary.data.forecast_available &&
+              summary.data.forecast_lower_bound !== null &&
+              summary.data.forecast_upper_bound !== null
+                ? `80% range ${formatMoney(summary.data.forecast_lower_bound, summary.data.currency)} – ${formatMoney(summary.data.forecast_upper_bound, summary.data.currency)}`
+                : summary.data.forecast_label
+            }
           />
           <KpiCard
             label="Previous monthly cost"
@@ -103,6 +118,53 @@ export function DashboardPage() {
             caption={score.data.score === null ? score.data.label : `Out of ${score.data.maximum}`}
           />
         </Box>
+      ) : null}
+
+      {summary.data && summary.data.linked_accounts.length > 1 ? (
+        <Card>
+          <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              Chargeback by account
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
+              AWS invoices the management account for the full organization total. Charge each linked
+              account its own row. The row marked This account is usage in {summary.data.linked_accounts.find((row) => row.is_this_login)?.account_id ?? "this login"}; that part is typically yours unless you allocate it.
+            </Typography>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Account</TableCell>
+                  <TableCell>Role</TableCell>
+                  <TableCell align="right">{summary.data.current_period_label}</TableCell>
+                  <TableCell align="right">{summary.data.previous_period_label}</TableCell>
+                  <TableCell align="right">Change</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {summary.data.linked_accounts.map((row) => (
+                  <TableRow key={row.account_id}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {row.account_id}
+                      </Typography>
+                      {row.account_name ? (
+                        <Typography variant="caption" color="text.secondary">
+                          {row.account_name}
+                        </Typography>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={row.is_this_login ? "This account" : "Linked"} color={row.is_this_login ? "primary" : "default"} />
+                    </TableCell>
+                    <TableCell align="right">{formatMoney(row.current, summary.data.currency)}</TableCell>
+                    <TableCell align="right">{formatMoney(row.previous, summary.data.currency)}</TableCell>
+                    <TableCell align="right">{formatSignedMoney(row.change, summary.data.currency)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       ) : null}
 
       {(summary.data && summary.data.months.length > 0) || (daily.data && services.data && regions.data) ? (

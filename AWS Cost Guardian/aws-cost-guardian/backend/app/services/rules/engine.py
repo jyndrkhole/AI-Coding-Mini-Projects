@@ -47,6 +47,7 @@ def default_rules() -> list[CostRule]:
         Gp2Review(),
         OldSnapshot(),
         RdsUnderutilized(),
+        IdleLoadBalancer(),
         S3MissingLifecycle(),
         NatArchitectureReview(),
         UnassociatedAddress(),
@@ -316,6 +317,31 @@ class RdsUnderutilized(CostRule):
         cpu = _metric(resource, "CPUUtilization")
         if cpu is None or cpu.get("average") is None or as_decimal(cpu["average"]) >= CPU_THRESHOLD:
             return []
+        connections = _metric(resource, "DatabaseConnections")
+        if connections is not None and connections.get("average") is not None and as_decimal(connections["average"]) <= Decimal("0.1"):
+            cost = _stored_cost(resource)
+            assumptions = ["Confirm no application still uses this database before it is stopped."]
+            if cost is None:
+                assumptions.append("No per-database monthly cost is stored, so no saving is quoted.")
+            return [
+                _recommendation(
+                    self,
+                    resource,
+                    "Idle database instance",
+                    "CPU is below 10% and database connections are at zero for the stored CloudWatch window. This is an idle candidate, not a measured deletion.",
+                    "LOW",
+                    "CLEANUP",
+                    [
+                        f"CPU average {cpu.get('average')}%",
+                        f"Database connections average {connections.get('average')}",
+                        f"Class {resource.get('instance_type') or 'unknown'}",
+                    ],
+                    assumptions,
+                    confidence="MEDIUM",
+                    data_quality="MEASURED",
+                    savings=cost,
+                )
+            ]
         return [
             _recommendation(
                 self,
@@ -326,6 +352,45 @@ class RdsUnderutilized(CostRule):
                 "REVIEW",
                 [f"CPU average {cpu.get('average')}%", f"Class {resource.get('instance_type')}"],
                 ["No saving is estimated without a stored price for a smaller class."],
+            )
+        ]
+
+
+class IdleLoadBalancer(CostRule):
+    rule_id = "ELB-001"
+    name = "IDLE_LOAD_BALANCER"
+    service = "ELB"
+
+    def evaluate(self, resource: dict, today: date) -> list[dict]:
+        if resource.get("resource_type") != "load_balancer":
+            return []
+        traffic = _metric(resource, "RequestCount") or _metric(resource, "ActiveFlowCount")
+        if traffic is None or traffic.get("average") is None or not traffic.get("sample_count"):
+            return []
+        if as_decimal(traffic["average"]) > Decimal("0.01"):
+            return []
+        cost = _stored_cost(resource)
+        metric_name = "RequestCount" if _metric(resource, "RequestCount") else "ActiveFlowCount"
+        assumptions = ["Confirm DNS no longer points at this load balancer before it is deleted."]
+        if cost is None:
+            assumptions.append("No per-balancer monthly cost is stored, so no saving is quoted.")
+        return [
+            _recommendation(
+                self,
+                resource,
+                "Idle load balancer",
+                "CloudWatch shows no requests or active flows for the stored window. The hourly bill is not split per balancer, so this card does not repeat that charge.",
+                "LOW",
+                "CLEANUP",
+                [
+                    f"{metric_name} average {traffic.get('average')}",
+                    f"Samples {traffic.get('sample_count')}",
+                    f"Name {resource.get('name') or resource.get('resource_id')}",
+                ],
+                assumptions,
+                confidence="MEDIUM",
+                data_quality="MEASURED",
+                savings=cost,
             )
         ]
 

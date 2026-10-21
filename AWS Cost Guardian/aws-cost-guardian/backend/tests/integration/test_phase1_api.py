@@ -33,6 +33,15 @@ def test_demo_account_identity(client) -> None:
 def test_cost_summary_uses_stored_totals(client) -> None:
     body = client.get("/api/costs/summary").json()
     assert body["current_monthly_cost"] == 18420
+    assert body["forecasted_monthly_cost"] == 18420
+    assert body["forecast_available"] is True
+    assert body["cost_scope_label"] == "Organization unblended cost"
+    accounts = {row["account_id"]: row for row in body["linked_accounts"]}
+    assert accounts["123456789012"]["current"] == 11052
+    assert accounts["123456789012"]["is_this_login"] is True
+    assert accounts["111122223333"]["current"] == 7368
+    assert accounts["111122223333"]["is_this_login"] is False
+    assert "estimate" in body["forecast_label"].lower()
     assert body["previous_monthly_cost"] == 15870
     assert body["mom_change_amount"] == 2550
     assert body["mom_change_percent"] == 16.1

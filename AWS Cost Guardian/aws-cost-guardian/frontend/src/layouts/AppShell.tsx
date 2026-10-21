@@ -131,7 +131,7 @@ function Shell() {
                     compact
                   />
                 </Box>
-                <Box ref={setActionHost} sx={{ display: "contents" }} />
+                <Box ref={setActionHost} sx={{ display: "flex", alignItems: "center" }} />
                 {onDashboard ? (
                   <Button size="small" variant="outlined" onClick={() => void queryClient.invalidateQueries()}>
                     Reload

@@ -41,3 +41,59 @@ def test_rules_do_not_invent_savings_or_resize_from_cpu_alone() -> None:
     assert "TAG-001" in findings
     text = " ".join(item["description"] for item in findings.values()).lower()
     assert "guaranteed saving" not in text
+
+
+def test_idle_load_balancer_and_database_are_safe_cleanup_without_a_stored_price() -> None:
+    findings = {
+        item["resource_id"]: item
+        for item in RuleRegistry().evaluate(
+            [
+                {
+                    "resource_id": "arn:aws:elasticloadbalancing:us-east-1:1:loadbalancer/app/old/abc",
+                    "resource_type": "load_balancer",
+                    "service": "ELB",
+                    "name": "old",
+                    "metrics": {"RequestCount": {"average": 0, "sample_count": 14}},
+                    "metadata": {},
+                },
+                {
+                    "resource_id": "busy",
+                    "resource_type": "load_balancer",
+                    "service": "ELB",
+                    "name": "busy",
+                    "metrics": {"RequestCount": {"average": 12, "sample_count": 14}},
+                    "metadata": {},
+                },
+                {
+                    "resource_id": "db-idle",
+                    "service": "RDS",
+                    "instance_type": "db.t4g.medium",
+                    "metrics": {
+                        "CPUUtilization": {"average": 1.2, "sample_count": 14},
+                        "DatabaseConnections": {"average": 0, "sample_count": 14},
+                    },
+                    "metadata": {},
+                },
+                {
+                    "resource_id": "db-low-cpu",
+                    "service": "RDS",
+                    "instance_type": "db.t3.medium",
+                    "metrics": {"CPUUtilization": {"average": 4, "sample_count": 14}},
+                    "metadata": {},
+                },
+            ],
+            TODAY,
+        )
+    }
+    balancer = findings["arn:aws:elasticloadbalancing:us-east-1:1:loadbalancer/app/old/abc"]
+    assert balancer["rule_id"] == "ELB-001"
+    assert balancer["title"] == "Idle load balancer"
+    assert balancer["action_type"] == "CLEANUP"
+    assert balancer["risk_level"] == "LOW"
+    assert balancer["estimated_monthly_savings"] == 0
+    assert "busy" not in findings
+    idle_db = findings["db-idle"]
+    assert idle_db["title"] == "Idle database instance"
+    assert idle_db["action_type"] == "CLEANUP"
+    assert idle_db["estimated_monthly_savings"] == 0
+    assert findings["db-low-cpu"]["action_type"] == "REVIEW"

@@ -8,6 +8,16 @@ export type Account = {
   mode: string;
 };
 
+export type LinkedAccountCost = {
+  account_id: string;
+  account_name: string | null;
+  is_this_login: boolean;
+  current: number;
+  previous: number;
+  change: number;
+  change_percent: number | null;
+};
+
 export type CostSummary = {
   currency: string;
   current_period_label: string;
@@ -16,6 +26,13 @@ export type CostSummary = {
   previous_monthly_cost: number;
   mom_change_amount: number;
   mom_change_percent: number | null;
+  forecasted_monthly_cost: number | null;
+  forecast_available: boolean;
+  forecast_label: string;
+  forecast_lower_bound: number | null;
+  forecast_upper_bound: number | null;
+  cost_scope_label: string;
+  linked_accounts: LinkedAccountCost[];
   mock_aws: boolean;
   history_note: string;
   prior_months_average: number | null;
@@ -58,12 +75,15 @@ export type CostExplorer = {
   end: string;
   service: string | null;
   region: string | null;
+  linked_account: string | null;
   current_period_label: string;
   previous_period_label: string;
   available_services: string[];
   available_regions: string[];
+  available_accounts: string[];
   daily_note: string | null;
   monthly_note: string;
+  account_note: string | null;
   pricing_note: string | null;
   daily: { date: string; amount: number }[];
   monthly: { month: string; label: string; amount: number }[];
@@ -90,6 +110,7 @@ export type CostExplorer = {
     change_percent: number | null;
     pricing_available: boolean;
   }[];
+  linked_accounts: LinkedAccountCost[];
 };
 
 export type ScanResult = {

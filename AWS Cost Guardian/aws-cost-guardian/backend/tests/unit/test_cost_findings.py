@@ -46,3 +46,21 @@ def test_load_balancer_cleanup_stays_in_safe_savings_past_the_review_cap() -> No
     assert balancer["title"] == "Load balancer hours"
     assert "still receive traffic" in balancer["client_ask"].lower()
     assert "EBS:SnapshotUsage" not in by_usage
+
+
+def test_cloudwatch_lines_below_the_floor_become_one_review() -> None:
+    findings = build_cost_findings(
+        [
+            ("AmazonCloudWatch", "CW:MetricMonitorUsage", Decimal("14.62")),
+            ("AmazonCloudWatch", "CW:AlarmMonitorUsage", Decimal("7.33")),
+            ("AmazonCloudWatch", "USE1-VendedLog-Bytes", Decimal("1.60")),
+            ("CloudWatch Events", "USE1-DataProcessing-Bytes", Decimal("4.00")),
+        ],
+        "October 2026",
+    )
+    cloudwatch = next(item for item in findings if item["resource_id"] == "CloudWatch")
+    assert cloudwatch["category"] == "review"
+    assert cloudwatch["title"] == "Review CloudWatch"
+    assert cloudwatch["estimated_monthly_savings"] == 0
+    assert cloudwatch["current_monthly_cost"] == 23.55
+    assert "no saving is quoted" in cloudwatch["client_brief"].lower()
