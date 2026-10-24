@@ -54,10 +54,11 @@ and Ollama-specific metadata such as 'done_reason' and 'total_duration'.
 
 import os
 import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from langchain_core.prompts import PromptTemplate  # noqa: E402
 

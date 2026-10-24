@@ -64,8 +64,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
-load_dotenv(Path(__file__).resolve().parents[1] / "section1" / ".env")
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from langchain.agents import create_agent  # noqa: E402
 from langchain_core.messages import HumanMessage  # noqa: E402

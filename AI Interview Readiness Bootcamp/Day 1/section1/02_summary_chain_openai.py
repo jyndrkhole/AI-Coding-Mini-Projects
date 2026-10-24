@@ -71,11 +71,13 @@ those environment variables are present.
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load GROQ_API_KEY (and optional LANGSMITH_* settings) from .env.
-load_dotenv()
+# Load GROQ_API_KEY (and optional LANGSMITH_* settings) from the shared .env
+# next to the day1 folder.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from langchain_core.prompts import PromptTemplate  # noqa: E402
 from langchain_openai import ChatOpenAI  # noqa: E402

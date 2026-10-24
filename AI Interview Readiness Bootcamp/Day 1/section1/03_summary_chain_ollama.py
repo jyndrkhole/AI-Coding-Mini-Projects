@@ -59,12 +59,13 @@ TROUBLESHOOTING
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Ollama needs no API key, but .env may still hold LANGSMITH_* tracing settings
-# and an optional OLLAMA_MODEL override.
-load_dotenv()
+# Ollama needs no API key, but the shared .env next to the day1 folder may
+# still hold LANGSMITH_* tracing settings and an optional OLLAMA_MODEL override.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from langchain_core.prompts import PromptTemplate  # noqa: E402
 from langchain_ollama import ChatOllama  # noqa: E402

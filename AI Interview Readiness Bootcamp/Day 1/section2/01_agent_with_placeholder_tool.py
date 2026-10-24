@@ -22,7 +22,7 @@ we swap in a real web search — and nothing else changes.
 
 PREREQUISITES (.env)
 --------------------
-    GROQ_API_KEY=gsk-...                # loaded from section1/.env
+    GROQ_API_KEY=gsk-...                # shared .env next to the day1 folder
     GROQ_MODEL=openai/gpt-oss-120b      # optional (default)
     LANGSMITH_TRACING=true              # optional — see the trace in LangSmith
     LANGSMITH_API_KEY=lsv2_...
@@ -63,9 +63,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load keys BEFORE importing/creating anything that needs them.
-# Section 2 has no .env of its own; the Groq key lives in section1/.env.
-load_dotenv()
-load_dotenv(Path(__file__).resolve().parents[1] / "section1" / ".env")
+# The shared .env sits next to the day1 folder so every section can load it.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 from langchain.agents import create_agent  # noqa: E402
 from langchain.tools import tool  # noqa: E402

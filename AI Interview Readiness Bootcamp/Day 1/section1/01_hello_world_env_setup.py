@@ -40,13 +40,14 @@ EXPECTED OUTPUT (without a .env file)
 """
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Reads ".env" from the current folder (and its parents) and puts every
-# KEY=value pair into os.environ. Existing environment variables win, so a key
-# exported in your terminal overrides the one in .env.
-load_dotenv()
+# The shared .env sits next to the day1 folder so every section can load it.
+# Existing environment variables win, so a key exported in your terminal
+# overrides the one in .env.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 
 # -----------------------------------------------------------------------------
