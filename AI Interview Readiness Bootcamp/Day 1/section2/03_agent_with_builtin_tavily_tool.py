@@ -81,15 +81,25 @@ DEFAULT_QUESTION = (
     "venue and a link for each."
 )
 
+# Groq counts the prompt plus the reserved reply against an 8,000-token limit.
+# With no max_tokens, this model reserves its full output budget and the
+# request is rejected before Tavily runs.
 llm = ChatOpenAI(
     model=GROQ_MODEL,
     api_key=os.environ["GROQ_API_KEY"],
     base_url=GROQ_BASE_URL,
+    max_tokens=1024,
 )
 
 # A ready-made LangChain tool. Like TavilyClient, it reads TAVILY_API_KEY from
-# the environment. You can set defaults here, e.g. TavilySearch(max_results=5).
-search_tool = TavilySearch()
+# the environment. Fewer, shorter results keep the agent prompt under Groq's
+# token limit.
+search_tool = TavilySearch(
+    max_results=3,
+    search_depth="basic",
+    include_answer=False,
+    include_raw_content=False,
+)
 tools = [search_tool]
 agent = create_agent(model=llm, tools=tools)
 
