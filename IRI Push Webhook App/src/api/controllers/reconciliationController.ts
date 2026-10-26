@@ -11,6 +11,29 @@ function queryValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function optionalNonNegativeInt(value: unknown, field: string, minimum = 0): string | { error: string } {
+  const raw = queryValue(value);
+  if (!raw) {
+    return "";
+  }
+  if (!/^\d+$/.test(raw) || Number(raw) < minimum) {
+    return { error: `${field} must be an integer of ${minimum} or more` };
+  }
+  return raw;
+}
+
+function optionalSortOrder(value: unknown): string | { error: string } {
+  const raw = queryValue(value);
+  if (!raw) {
+    return "";
+  }
+  const normalized = raw.toLowerCase();
+  if (normalized !== "asc" && normalized !== "desc") {
+    return { error: "sortOrder must be asc or desc" };
+  }
+  return normalized;
+}
+
 function requestSourceApiKey(req: { get(name: string): string | undefined }): string {
   return queryValue(req.get("x-source-api-key"));
 }
@@ -52,12 +75,32 @@ export const reconcileNotifications: RequestHandler = async (req, res, next) => 
 
     const associatedFirmId = queryValue(req.query.associatedFirmId);
     const correlationId = queryValue(req.query.correlationId);
+    const orderBy = queryValue(req.query.orderBy);
+    const sortOrder = optionalSortOrder(req.query.sortOrder);
+    const offset = optionalNonNegativeInt(req.query.offset, "offset");
+    const limit = optionalNonNegativeInt(req.query.limit, "limit", 1);
+    if (typeof sortOrder === "object") {
+      res.status(400).json({ status: "error", message: sortOrder.error });
+      return;
+    }
+    if (typeof offset === "object") {
+      res.status(400).json({ status: "error", message: offset.error });
+      return;
+    }
+    if (typeof limit === "object") {
+      res.status(400).json({ status: "error", message: limit.error });
+      return;
+    }
     const sourceBaseUrl = requestSourceBaseUrl(req);
     const result = await fetchReconciliation({
       startTime,
       endTime,
       associatedFirmId,
       correlationId,
+      orderBy,
+      sortOrder,
+      offset,
+      limit,
       sourceApiKey: requestSourceApiKey(req),
       sourceBaseUrl
     });

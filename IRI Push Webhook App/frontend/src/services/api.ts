@@ -141,6 +141,10 @@ export const api = {
     endTime: string;
     associatedFirmId?: string;
     correlationId?: string;
+    orderBy?: string;
+    sortOrder?: string;
+    offset?: string;
+    limit?: string;
     sourceApiKey?: string;
     sourceBaseUrl?: string;
   }) => {

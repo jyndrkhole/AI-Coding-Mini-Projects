@@ -135,12 +135,16 @@ export const openApiSpec = {
         tags: ["Internal API"],
         summary: "Call the configured source reconciliation API and compare with stored webhooks",
         description:
-          "Posts the source x-api-key to the environment source URL /getAuthToken, then proxies GET /v1/application-notifications/reconciliation with the Authorization token. QA, INT, and PROD each use their own SOURCE_API_BASE_URL_* value.",
+          "Posts the source x-api-key to the environment source URL /getAuthToken, then proxies GET /v2/application-notifications/reconciliation with the Authorization token. QA, INT, and PROD each use their own SOURCE_API_BASE_URL_* value.",
         parameters: [
           { name: "startTime", in: "query", required: true, schema: { type: "string", format: "date", example: "2026-01-01" } },
           { name: "endTime", in: "query", required: true, schema: { type: "string", format: "date", example: "2026-10-16" } },
           { name: "associatedFirmId", in: "query", schema: { type: "string" } },
           { name: "correlationId", in: "query", schema: { type: "string" } },
+          { name: "orderBy", in: "query", schema: { type: "string" } },
+          { name: "sortOrder", in: "query", schema: { type: "string", enum: ["asc", "desc"] } },
+          { name: "offset", in: "query", schema: { type: "integer", minimum: 0 } },
+          { name: "limit", in: "query", schema: { type: "integer", minimum: 1 } },
           {
             name: "X-Source-Api-Key",
             in: "header",
@@ -166,7 +170,7 @@ export const openApiSpec = {
         tags: ["Internal API"],
         summary: "Call the source API to retrieve one notification payload",
         description:
-          "Posts the source x-api-key to the environment source URL /getAuthToken, then proxies GET /v1/application-notifications/{eventId} with the Authorization token.",
+          "Posts the source x-api-key to the environment source URL /getAuthToken, then proxies GET /v2/application-notifications/{eventId} with the Authorization token.",
         parameters: [
           { name: "eventId", in: "path", required: true, schema: { type: "string" } },
           { name: "correlationId", in: "query", schema: { type: "string" } },

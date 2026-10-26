@@ -1,9 +1,11 @@
 import { env } from "../config/env.ts";
 
 const AUTH_PATH = "/getAuthToken";
-const RECONCILIATION_PATH = "/v1/application-notifications/reconciliation";
-const EVENT_PATH = "/v1/application-notifications";
+const SOURCE_API_VERSION = "v2";
+const RECONCILIATION_PATH = `/${SOURCE_API_VERSION}/application-notifications/reconciliation`;
+const EVENT_PATH = `/${SOURCE_API_VERSION}/application-notifications`;
 const TOKEN_FIELDS = ["token", "accessToken", "access_token", "authToken", "jwt", "id_token", "idToken"];
+const SOURCE_NOTIFICATIONS_PATH = /\/v\d+\/application-notifications(?:\/.*)?$/i;
 
 interface CachedToken {
   key: string;
@@ -89,7 +91,7 @@ export function normalizeSourceBase(value: string): string {
   parsed.hash = "";
   const path = parsed.pathname
     .replace(/\/+$/, "")
-    .replace(/\/v1\/application-notifications(?:\/.*)?$/i, "")
+    .replace(SOURCE_NOTIFICATIONS_PATH, "")
     .replace(/\/getAuthToken$/i, "");
   parsed.pathname = path || "/";
   return parsed.toString().replace(/\/$/, "");
@@ -264,11 +266,22 @@ async function callSource(
   return { sourceStatus: response.status, body: parsed, message: messageFrom(body, response.status) };
 }
 
+function setOptionalQuery(url: URL, name: string, value?: string): void {
+  const trimmed = value?.trim();
+  if (trimmed) {
+    url.searchParams.set(name, trimmed);
+  }
+}
+
 export function fetchReconciliation(input: {
   startTime: string;
   endTime: string;
   associatedFirmId?: string;
   correlationId?: string;
+  orderBy?: string;
+  sortOrder?: string;
+  offset?: string;
+  limit?: string;
   sourceApiKey?: string;
   sourceBaseUrl?: string;
 }): Promise<SourceCallResult> {
@@ -276,10 +289,11 @@ export function fetchReconciliation(input: {
   const url = new URL(RECONCILIATION_PATH.replace(/^\//, ""), origin);
   url.searchParams.set("startTime", input.startTime);
   url.searchParams.set("endTime", input.endTime);
-  const firmId = input.associatedFirmId?.trim();
-  if (firmId) {
-    url.searchParams.set("associatedFirmId", firmId);
-  }
+  setOptionalQuery(url, "associatedFirmId", input.associatedFirmId);
+  setOptionalQuery(url, "orderBy", input.orderBy);
+  setOptionalQuery(url, "sortOrder", input.sortOrder);
+  setOptionalQuery(url, "offset", input.offset);
+  setOptionalQuery(url, "limit", input.limit);
   return callSource(url, origin, input.correlationId, true, input.sourceApiKey);
 }
 

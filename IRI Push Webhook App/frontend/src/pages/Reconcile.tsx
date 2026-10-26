@@ -23,7 +23,7 @@ function sourceBaseForDisplay(value: string): string {
     url.hash = "";
     const path = url.pathname
       .replace(/\/+$/, "")
-      .replace(/\/v1\/application-notifications(?:\/.*)?$/i, "")
+      .replace(/\/v\d+\/application-notifications(?:\/.*)?$/i, "")
       .replace(/\/getAuthToken$/i, "");
     url.pathname = path || "/";
     return url.toString().replace(/\/$/, "");
@@ -43,6 +43,10 @@ export function ReconcilePage() {
   const [endTime, setEndTime] = useState(toDateInput(today));
   const [associatedFirmId, setAssociatedFirmId] = useState("");
   const [correlationId, setCorrelationId] = useState("");
+  const [orderBy, setOrderBy] = useState("");
+  const [sortOrder, setSortOrder] = useState("");
+  const [offset, setOffset] = useState("");
+  const [limit, setLimit] = useState("");
   const [lookupEventId, setLookupEventId] = useState("");
   const [sourceEndpoint, setSourceEndpoint] = useState(() => sessionStorage.getItem("iri-source-endpoint") ?? "");
   const [sourceApiKey, setSourceApiKey] = useState(() => sessionStorage.getItem("iri-source-x-api-key") ?? "");
@@ -92,6 +96,10 @@ export function ReconcilePage() {
         endTime: end,
         associatedFirmId,
         correlationId,
+        orderBy,
+        sortOrder,
+        offset,
+        limit,
         sourceApiKey,
         sourceBaseUrl: activeEndpoint
       });
@@ -184,6 +192,7 @@ export function ReconcilePage() {
       <div className="reconcile-split">
         <div className="reconcile-pane">
           <h4>Reconciliation</h4>
+      <p className="help">Calls GET /v2/application-notifications/reconciliation on the source.</p>
       <div className="reconcile-filters">
         <label className="field">
           Start
@@ -210,6 +219,42 @@ export function ReconcilePage() {
           />
         </label>
         <label className="field">
+          Order by
+          <input
+            value={orderBy}
+            onChange={(event) => setOrderBy(event.target.value)}
+            placeholder="Optional"
+          />
+        </label>
+        <label className="field">
+          Sort
+          <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+            <option value="">Default</option>
+            <option value="asc">asc</option>
+            <option value="desc">desc</option>
+          </select>
+        </label>
+        <label className="field">
+          Offset
+          <input
+            type="number"
+            min="0"
+            value={offset}
+            onChange={(event) => setOffset(event.target.value)}
+            placeholder="Optional"
+          />
+        </label>
+        <label className="field">
+          Limit
+          <input
+            type="number"
+            min="1"
+            value={limit}
+            onChange={(event) => setLimit(event.target.value)}
+            placeholder="Optional"
+          />
+        </label>
+        <label className="field">
           &nbsp;
           <button className="btn" type="button" disabled={!activeEndpoint || !keyReady || loading} onClick={() => void runReconciliation()}>
             {loading ? "Calling source…" : "Run reconciliation"}
@@ -231,6 +276,7 @@ export function ReconcilePage() {
                     <th>Event ID</th>
                     <th>Policy</th>
                     <th>Application</th>
+                    <th>Origin</th>
                     <th>Status</th>
                     <th>In portal</th>
                     <th>Actions</th>
@@ -242,6 +288,7 @@ export function ReconcilePage() {
                       <td className="mono">{event.eventId || "—"}</td>
                       <td>{event.policyNumber || "—"}</td>
                       <td>{event.id || "—"}</td>
+                      <td>{event.applicationOrigin?.platform || event.applicationOrigin?.id || "—"}</td>
                       <td>{event.status || "—"}</td>
                       <td>
                         <span className={`badge ${event.stored ? "success" : "warn"}`}>
@@ -274,6 +321,7 @@ export function ReconcilePage() {
         </div>
         <div className="reconcile-pane reconcile-detail">
           <h4>Get by event id</h4>
+          <p className="help">{"Calls GET /v2/application-notifications/{eventId} on the source."}</p>
       <div className="reconcile-filters">
         <label className="field">
           Event ID

@@ -9,7 +9,7 @@ info:
     url: https://github.com/Insured-Retirement-Institute/Pending-Case/blob/main/LICENSE
 
 paths:
-  /v1/application-notifications/reconciliation:
+  /v2/application-notifications/reconciliation:
     get:
       operationId: reconciliation
       summary: Send a list of published events to reconcile for potential missed Notifications
@@ -20,12 +20,16 @@ paths:
         - $ref: '#/components/parameters/correlationId'
         - $ref: '#/components/parameters/startTime'
         - $ref: '#/components/parameters/endTime'
+        - $ref: '#/components/parameters/orderBy'
+        - $ref: '#/components/parameters/sortOrder'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/limit'
       responses:
         "200":
           description: reconciliation successfully received
           content:
             application/json:
-              schema: 
+              schema:
                 $ref: '#/components/schemas/reconciliation'
               example:
                 totalEvents: 2
@@ -46,13 +50,30 @@ paths:
                       isElectronic: true
                       id: DF-APP-001235
                     status: inProgress
+          headers:
+            correlationId:
+              $ref: '#/components/headers/correlationId'
+            X-Api-Version:
+              $ref: '#/components/headers/X-Api-Version'
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         "403":
           description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         "404":
           description: NotFound
-  /v1/application-notifications/{eventId}:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /v2/application-notifications/{eventId}:
     get:
       operationId: replayEvent
       summary: Retrieve payload for the given event ID
@@ -66,7 +87,7 @@ paths:
           content:
             application/json:
               schema:
-                anyOf:
+                oneOf:
                   - $ref: '#/components/schemas/ApplicationReceivedNotification'
                   - $ref: '#/components/schemas/CanSellNotification'
                   - $ref: '#/components/schemas/SuitabilityActionNotification'
@@ -79,39 +100,39 @@ paths:
                   - $ref: '#/components/schemas/FundingReceivedNotification'
                   - $ref: '#/components/schemas/ApplicationCompletedNotification'
                   - $ref: '#/components/schemas/ApplicationCancelledNotification'
-              example:
-                eventId: evt-550e8400-e29b-41d4-a716-446655440001
-                policyNumber: P987654321
-                id: APP-2026-001234
-                applicationOrigin:
-                  platform: DigitalFirst
-                  isElectronic: true
-                  id: DF-APP-001234
-                status: received
-                eventType: applicationStatus.v1.applicationReceived
-                notification:
-                  cusip: "401B23458"
-                  isActionNeeded: false
-                  productName: Secure Income Annuity Plus
-                  isQualified: true
+                discriminator:
+                  propertyName: eventType
+                  mapping:
+                    applicationStatus.v1.applicationReceived: '#/components/schemas/ApplicationReceivedNotification'
+                    applicationStatus.v1.canSellActionNeeded: '#/components/schemas/CanSellNotification'
+                    applicationStatus.v1.suitabilityActionNeeded: '#/components/schemas/SuitabilityActionNotification'
+                    applicationStatus.v1.suitabilityApproved: '#/components/schemas/SuitabilityDecisionNotification'
+                    applicationStatus.v1.documentReviewActionNeeded: '#/components/schemas/DocReviewNotification'
+                    applicationStatus.v1.fundingActionNeeded: '#/components/schemas/FundingActionNotification'
+                    applicationStatus.v1.fundingTransferRequestSent: '#/components/schemas/TransferRequestNotification'
+                    applicationStatus.v1.fundingSourceTypeUpdated: '#/components/schemas/SourceTypeNotification'
+                    applicationStatus.v1.fundingTransferFollowedUp: '#/components/schemas/NewFollowUpNotification'
+                    applicationStatus.v1.fundingReceived: '#/components/schemas/FundingReceivedNotification'
+                    applicationStatus.v1.applicationCompleted: '#/components/schemas/ApplicationCompletedNotification'
+                    applicationStatus.v1.applicationCancelled: '#/components/schemas/ApplicationCancelledNotification'
               examples:
                 applicationReceivedReplay:
-                  summary: Application received event payload
-                  value:
-                    eventId: evt-550e8400-e29b-41d4-a716-446655440001
-                    policyNumber: P987654321
-                    id: APP-2026-001234
-                    applicationOrigin:
-                      platform: DigitalFirst
-                      isElectronic: true
-                      id: DF-APP-001234
-                    status: received
-                    eventType: applicationStatus.v1.applicationReceived
-                    notification:
-                      cusip: "401B23458"
-                      isActionNeeded: false
-                      productName: Secure Income Annuity Plus
-                      isQualified: true
+                    summary: Application received event payload
+                    value:
+                      eventId: evt-550e8400-e29b-41d4-a716-446655440001
+                      policyNumber: P987654321
+                      id: APP-2026-001234
+                      applicationOrigin:
+                        platform: DigitalFirst
+                        isElectronic: true
+                        id: DF-APP-001234
+                      status: received
+                      eventType: applicationStatus.v1.applicationReceived
+                      notification:
+                        cusip: "401B23458"
+                        isActionNeeded: false
+                        productName: Secure Income Annuity Plus
+                        isQualified: true
                 canSellActionNeededReplay:
                   summary: Can-sell action needed event payload
                   value:
@@ -143,7 +164,31 @@ paths:
                     notification:
                       initiator: client
                       cancelledDate: "2026-06-18"
-                      reason: Client elected to pursue alternative product
+                      reason: clientRequest
+                      notes: Client elected to pursue alternative product
+          headers:
+            correlationId:
+              $ref: '#/components/headers/correlationId'
+            X-Api-Version:
+              $ref: '#/components/headers/X-Api-Version'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        "404":
+          description: NotFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 webhooks:
   applicationReceived:
     post:
@@ -1093,9 +1138,58 @@ components:
         required: true
         schema: 
           type: string
+      orderBy:
+        name: orderBy
+        description: Field used to order reconciliation results
+        in: query
+        required: false
+        schema:
+          type: string
+      sortOrder:
+        name: sortOrder
+        description: Sort direction for reconciliation results
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [asc, desc]
+      offset:
+        name: offset
+        description: Number of reconciliation events to skip
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+      limit:
+        name: limit
+        description: Maximum number of reconciliation events to return
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+
+  headers:
+    correlationId:
+      description: Echo of the client-supplied correlation identifier
+      schema:
+        type: string
+    X-Api-Version:
+      description: Version of the Application Notifications API that served this response
+      schema:
+        type: string
+        example: v2
 
   ###### Payload schemas #######
   schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        status:
+          type: integer
     ApplicationReceivedNotification:
       description: Schema for application received notification data
       required: [cusip,eventType,notification]

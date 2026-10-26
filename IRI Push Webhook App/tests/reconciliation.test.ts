@@ -83,7 +83,7 @@ describe("source reconciliation", () => {
       .get("/api/reconciliation")
       .query({ startTime: "2026-10-01T00:00:00.000Z", endTime: "2026-10-02T00:00:00.000Z" })
       .expect(200);
-    expect(seenPath).toBe("/v1/application-notifications/reconciliation");
+    expect(seenPath).toBe("/v2/application-notifications/reconciliation");
     expect(response.body.sourceBaseUrl).toBe(base);
     const config = await request(app).get("/api/config").expect(200);
     expect(config.body.portalEnvironment).toBe("INT");
@@ -160,8 +160,54 @@ describe("source reconciliation", () => {
       .set("X-Source-Base-Url", `${base}/api/v1/application-notifications/reconciliation?startTime=2026-09-09`)
       .set("X-Source-Api-Key", "typed-key")
       .expect(200);
-    expect(seen).toEqual(["POST /api/getAuthToken", "GET /api/v1/application-notifications/reconciliation"]);
+    expect(seen).toEqual(["POST /api/getAuthToken", "GET /api/v2/application-notifications/reconciliation"]);
     expect(response.body.sourceBaseUrl).toBe(`${base}/api`);
+  });
+
+  it("strips a pasted v2 reconciliation URL and still calls the v2 path", async () => {
+    const seen: string[] = [];
+    const base = await listen((req, res) => {
+      const url = new URL(req.url ?? "/", "http://127.0.0.1");
+      seen.push(`${req.method} ${url.pathname}`);
+      res.setHeader("Content-Type", "application/json");
+      if (url.pathname === "/api/getAuthToken") {
+        res.end(JSON.stringify({ token: "base-token" }));
+        return;
+      }
+      res.end(JSON.stringify({ totalEvents: 0, events: [] }));
+    });
+    process.env.SOURCE_API_BASE_URL = "http://127.0.0.1:9";
+    delete process.env.SOURCE_API_KEY;
+    const app = createTestApp();
+    const response = await request(app)
+      .get("/api/reconciliation")
+      .query({ startTime: "2026-10-01T00:00:00.000Z", endTime: "2026-10-02T00:00:00.000Z" })
+      .set("X-Source-Base-Url", `${base}/api/v2/application-notifications/reconciliation?startTime=2026-09-09`)
+      .set("X-Source-Api-Key", "typed-key")
+      .expect(200);
+    expect(seen).toEqual(["POST /api/getAuthToken", "GET /api/v2/application-notifications/reconciliation"]);
+    expect(response.body.sourceBaseUrl).toBe(`${base}/api`);
+  });
+
+  it("rejects invalid reconciliation paging and sort values", async () => {
+    process.env.SOURCE_API_BASE_URL = "http://127.0.0.1:9";
+    process.env.SOURCE_API_KEY = "source-key";
+    const app = createTestApp();
+    const sort = await request(app)
+      .get("/api/reconciliation")
+      .query({ startTime: "2026-10-01T00:00:00.000Z", endTime: "2026-10-02T00:00:00.000Z", sortOrder: "sideways" })
+      .expect(400);
+    expect(sort.body.message).toMatch(/sortOrder/);
+    const offset = await request(app)
+      .get("/api/reconciliation")
+      .query({ startTime: "2026-10-01T00:00:00.000Z", endTime: "2026-10-02T00:00:00.000Z", offset: "-1" })
+      .expect(400);
+    expect(offset.body.message).toMatch(/offset/);
+    const limit = await request(app)
+      .get("/api/reconciliation")
+      .query({ startTime: "2026-10-01T00:00:00.000Z", endTime: "2026-10-02T00:00:00.000Z", limit: "0" })
+      .expect(400);
+    expect(limit.body.message).toMatch(/limit/);
   });
 
   it("rejects a source endpoint that is not an http URL", async () => {
@@ -222,13 +268,17 @@ describe("source reconciliation", () => {
         startTime: "2026-10-01T00:00:00.000Z",
         endTime: "2026-10-02T00:00:00.000Z",
         associatedFirmId: "FIRM-1",
-        correlationId: "corr-1"
+        correlationId: "corr-1",
+        orderBy: "status",
+        sortOrder: "desc",
+        offset: "10",
+        limit: "25"
       })
       .expect(200);
 
     expect(seen.map((call) => `${call.method} ${call.path}`)).toEqual([
       "POST /getAuthToken",
-      "GET /v1/application-notifications/reconciliation"
+      "GET /v2/application-notifications/reconciliation"
     ]);
     expect(seen[0]?.key).toBe("source-key");
     expect(seen[0]?.authorization).toBe("");
@@ -238,6 +288,10 @@ describe("source reconciliation", () => {
     expect(seenQuery.get("startTime")).toBe("2026-10-01T00:00:00.000Z");
     expect(seenQuery.get("endTime")).toBe("2026-10-02T00:00:00.000Z");
     expect(seenQuery.get("associatedFirmId")).toBe("FIRM-1");
+    expect(seenQuery.get("orderBy")).toBe("status");
+    expect(seenQuery.get("sortOrder")).toBe("desc");
+    expect(seenQuery.get("offset")).toBe("10");
+    expect(seenQuery.get("limit")).toBe("25");
     expect(response.body.sourceBaseUrl).toBe(base);
     expect(response.body.sourceStatus).toBe(200);
     expect(response.body.storedCount).toBe(1);
@@ -270,9 +324,9 @@ describe("source reconciliation", () => {
     const response = await request(app).get("/api/reconciliation/events/evt-9").expect(200);
     expect(seen.map((call) => call.path)).toEqual([
       "/getAuthToken",
-      "/v1/application-notifications/evt-9",
+      "/v2/application-notifications/evt-9",
       "/getAuthToken",
-      "/v1/application-notifications/evt-9"
+      "/v2/application-notifications/evt-9"
     ]);
     expect(seen[1]?.authorization).toBe("event-token");
     expect(response.body.sourceStatus).toBe(401);
