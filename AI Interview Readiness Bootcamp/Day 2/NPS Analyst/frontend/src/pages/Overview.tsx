@@ -1,5 +1,6 @@
 import { Alert, Box, Button, Chip, Stack } from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { HorizontalBars } from "../charts/Bars";
 import { NpsTrend } from "../charts/NpsTrend";
 import { Kpi } from "../components/Kpi";
@@ -26,6 +27,7 @@ export function OverviewPage() {
   const datasets = useDatasets();
   const datasetId = useDatasetId();
   const client = useQueryClient();
+  const navigate = useNavigate();
   const overview = useQuery({
     queryKey: ["overview", datasetId],
     queryFn: () => getJson<Overview>(`/api/overview/${datasetId}`),
@@ -33,7 +35,10 @@ export function OverviewPage() {
   });
   const run = useMutation({
     mutationFn: () => postJson(`/api/analysis/${datasetId}/run?force=true`),
-    onSuccess: () => client.invalidateQueries(),
+    onSuccess: async () => {
+      await client.invalidateQueries();
+      navigate("/report");
+    },
   });
   const level = overview.data?.alert.level;
   return (
@@ -44,10 +49,11 @@ export function OverviewPage() {
           <Stack spacing={3}>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" } }}>
               <Chip label={level} color={level === "RED" ? "error" : level === "AMBER" ? "warning" : "success"} />
-              <Button variant="contained" onClick={() => run.mutate()} disabled={run.isPending}>
+              <Button variant="contained" onClick={() => run.mutate()} disabled={run.isPending || !datasetId}>
                 {run.isPending ? "Running analysis…" : "Run specialist analysis"}
               </Button>
             </Stack>
+            {run.isError ? <Alert severity="error">{run.error.message}</Alert> : null}
             {overview.data.alert.reasons.map((reason) => (
               <Alert key={reason} severity={level === "RED" ? "error" : "warning"}>
                 {reason}
