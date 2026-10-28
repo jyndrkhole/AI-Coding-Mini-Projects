@@ -1,0 +1,17 @@
+services:
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      NPS_SURVEY_PATH: /data/nps_survey.csv
+    volumes:
+      - ./data:/data
+  web:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      API_PROXY: http://api:8000
+    depends_on:
+      - api
