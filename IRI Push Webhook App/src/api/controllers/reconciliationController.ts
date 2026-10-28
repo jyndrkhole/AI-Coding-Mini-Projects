@@ -1,4 +1,5 @@
 import type { RequestHandler } from "express";
+import { displayNameForEventType } from "../../config/eventsCatalog.ts";
 import { findPortalEventsBySourceEventIds } from "../../repositories/webhookEventRepository.ts";
 import {
   fetchReconciliation,
@@ -48,6 +49,79 @@ function sourceEventId(value: unknown): string {
   }
   const eventId = value.eventId;
   return typeof eventId === "string" ? eventId.trim() : "";
+}
+
+function eventTypeFromUnknown(value: unknown, depth = 0): string {
+  if (!value || typeof value !== "object" || depth > 3) {
+    return "";
+  }
+  const record = value as Record<string, unknown>;
+  for (const key of ["eventType", "event_type"]) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  for (const nested of [record.notification, record.payload, record.data, record.event]) {
+    const found = eventTypeFromUnknown(nested, depth + 1);
+    if (found) {
+      return found;
+    }
+  }
+  return "";
+}
+
+interface ReconciliationRow {
+  eventId: string;
+  eventType: string | null;
+  displayName: string | null;
+  stored: boolean;
+  portalEventId: string | null;
+  [key: string]: unknown;
+}
+
+const SOURCE_EVENT_FETCH_CONCURRENCY = 6;
+
+async function fillEventNamesFromSource(
+  events: ReconciliationRow[],
+  correlationId: string,
+  sourceApiKey: string,
+  sourceBaseUrl: string,
+  sourceStatus: number
+): Promise<void> {
+  if (sourceStatus < 200 || sourceStatus >= 300) {
+    return;
+  }
+  const pending = events.filter((event) => event.eventId && !event.eventType);
+  if (pending.length === 0) {
+    return;
+  }
+  let cursor = 0;
+  async function worker(): Promise<void> {
+    while (cursor < pending.length) {
+      const event = pending[cursor++];
+      if (!event) {
+        return;
+      }
+      try {
+        const replay = await fetchSourceEvent(event.eventId, correlationId, sourceApiKey, sourceBaseUrl);
+        if (replay.sourceStatus < 200 || replay.sourceStatus >= 300) {
+          continue;
+        }
+        const eventType = eventTypeFromUnknown(replay.body);
+        if (!eventType) {
+          continue;
+        }
+        event.eventType = eventType;
+        event.displayName = displayNameForEventType(eventType);
+      } catch {
+        // Keep the list even if a single get-by-event-id call fails.
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(SOURCE_EVENT_FETCH_CONCURRENCY, pending.length) }, () => worker())
+  );
 }
 
 function fail(error: unknown, next: (err?: unknown) => void): void {
@@ -107,16 +181,26 @@ export const reconcileNotifications: RequestHandler = async (req, res, next) => 
     const payload = result.body && typeof result.body === "object" ? result.body : {};
     const rawEvents = "events" in payload && Array.isArray(payload.events) ? payload.events : [];
     const stored = findPortalEventsBySourceEventIds(rawEvents.map(sourceEventId));
-    const events = rawEvents.map((event) => {
+    const events: ReconciliationRow[] = rawEvents.map((event) => {
       const eventId = sourceEventId(event);
-      const portalEventId = eventId ? stored.get(eventId) ?? null : null;
+      const match = eventId ? stored.get(eventId) : undefined;
+      const eventType = eventTypeFromUnknown(event) || match?.eventType || "";
       return {
         ...(event && typeof event === "object" ? event : {}),
         eventId,
-        stored: Boolean(portalEventId),
-        portalEventId
+        eventType: eventType || null,
+        displayName: eventType ? displayNameForEventType(eventType) : null,
+        stored: Boolean(match),
+        portalEventId: match?.id ?? null
       };
     });
+    await fillEventNamesFromSource(
+      events,
+      correlationId,
+      requestSourceApiKey(req),
+      sourceBaseUrl,
+      result.sourceStatus
+    );
     const totalEvents =
       "totalEvents" in payload && typeof payload.totalEvents === "number" ? payload.totalEvents : events.length;
 
@@ -141,7 +225,7 @@ export const replaySourceEvent: RequestHandler = async (req, res, next) => {
     const sourceBaseUrl = requestSourceBaseUrl(req);
     const result = await fetchSourceEvent(eventId, correlationId, requestSourceApiKey(req), sourceBaseUrl);
     const stored = findPortalEventsBySourceEventIds([eventId]);
-    const portalEventId = stored.get(eventId.trim()) ?? null;
+    const portalEventId = stored.get(eventId.trim())?.id ?? null;
     res.json({
       sourceBaseUrl: resolveSourceBaseUrl(sourceBaseUrl),
       sourceStatus: result.sourceStatus,

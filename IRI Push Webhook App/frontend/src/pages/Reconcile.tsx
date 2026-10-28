@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { JsonViewer } from "../components/JsonViewer";
 import { api } from "../services/api";
-import type { PortalConfig, ReconciliationEvent, ReconciliationResult, SourceEventResult } from "../types";
+import type {
+  CatalogEvent,
+  PortalConfig,
+  ReconciliationEvent,
+  ReconciliationResult,
+  SourceEventResult
+} from "../types";
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
@@ -36,8 +42,16 @@ function sourceDate(value: string): string {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
 }
 
+function catalogName(catalog: CatalogEvent[], eventType?: string | null): string {
+  if (!eventType) {
+    return "";
+  }
+  return catalog.find((item) => item.eventType === eventType)?.displayName || "";
+}
+
 export function ReconcilePage() {
   const [config, setConfig] = useState<PortalConfig | null>(null);
+  const [catalog, setCatalog] = useState<CatalogEvent[]>([]);
   const today = new Date();
   const [startTime, setStartTime] = useState(`${today.getFullYear()}-01-01`);
   const [endTime, setEndTime] = useState(toDateInput(today));
@@ -62,6 +76,7 @@ export function ReconcilePage() {
       setConfig(portalConfig);
       setSourceEndpoint((current) => current || portalConfig.sourceApiBaseUrl || "");
     }).catch(() => setConfig(null));
+    void api.getCatalog().then((eventCatalog) => setCatalog(eventCatalog.events)).catch(() => setCatalog([]));
   }, []);
 
   useEffect(() => {
@@ -190,159 +205,174 @@ export function ReconcilePage() {
         </label>
       </div>
       <div className="reconcile-split">
-        <div className="reconcile-pane">
+        <div className="reconcile-pane reconcile-list">
           <h4>Reconciliation</h4>
-      <p className="help">Calls GET /v2/application-notifications/reconciliation on the source.</p>
-      <div className="reconcile-filters">
-        <label className="field">
-          Start
-          <input type="date" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
-        </label>
-        <label className="field">
-          End
-          <input type="date" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
-        </label>
-        <label className="field">
-          Associated firm ID
-          <input
-            value={associatedFirmId}
-            onChange={(event) => setAssociatedFirmId(event.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-        <label className="field">
-          Correlation ID
-          <input
-            value={correlationId}
-            onChange={(event) => setCorrelationId(event.target.value)}
-            placeholder="Optional header"
-          />
-        </label>
-        <label className="field">
-          Order by
-          <input
-            value={orderBy}
-            onChange={(event) => setOrderBy(event.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-        <label className="field">
-          Sort
-          <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
-            <option value="">Default</option>
-            <option value="asc">asc</option>
-            <option value="desc">desc</option>
-          </select>
-        </label>
-        <label className="field">
-          Offset
-          <input
-            type="number"
-            min="0"
-            value={offset}
-            onChange={(event) => setOffset(event.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-        <label className="field">
-          Limit
-          <input
-            type="number"
-            min="1"
-            value={limit}
-            onChange={(event) => setLimit(event.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-        <label className="field">
-          &nbsp;
-          <button className="btn" type="button" disabled={!activeEndpoint || !keyReady || loading} onClick={() => void runReconciliation()}>
-            {loading ? "Calling source…" : "Run reconciliation"}
-          </button>
-        </label>
-      </div>
-      {result ? (
-        <>
-          <p className="help">
-            {`Source returned ${result.totalEvents} event${result.totalEvents === 1 ? "" : "s"} (HTTP ${result.sourceStatus}). ${result.storedCount} already stored, ${result.missingCount} missing.`}
-          </p>
-          {result.events.length === 0 ? (
-            <div className="empty">The source returned no events for this window.</div>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Event ID</th>
-                    <th>Policy</th>
-                    <th>Application</th>
-                    <th>Origin</th>
-                    <th>Status</th>
-                    <th>In portal</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.events.map((event, index) => (
-                    <tr key={event.eventId || index} className={selected?.eventId === event.eventId ? "is-selected" : undefined}>
-                      <td className="mono">{event.eventId || "—"}</td>
-                      <td>{event.policyNumber || "—"}</td>
-                      <td>{event.id || "—"}</td>
-                      <td>{event.applicationOrigin?.platform || event.applicationOrigin?.id || "—"}</td>
-                      <td>{event.status || "—"}</td>
-                      <td>
-                        <span className={`badge ${event.stored ? "success" : "warn"}`}>
-                          {event.stored ? "Stored" : "Missing"}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className="btn link"
-                          type="button"
-                          disabled={!keyReady || !event.eventId || loadingEventId === event.eventId}
-                          onClick={() => void loadPayload(event)}
-                        >
-                          {loadingEventId === event.eventId ? "Loading…" : "Load payload"}
-                        </button>
-                        {event.portalEventId ? (
-                          <Link to={`/events/${event.portalEventId}`} className="btn link" style={{ marginLeft: 12 }}>
-                            View stored
-                          </Link>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      ) : null}
+          <p className="help">Calls GET /v2/application-notifications/reconciliation on the source.</p>
+          <div className="reconcile-filters">
+            <label className="field">
+              Start
+              <input type="date" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+            </label>
+            <label className="field">
+              End
+              <input type="date" value={endTime} onChange={(event) => setEndTime(event.target.value)} />
+            </label>
+            <label className="field">
+              Associated firm ID
+              <input
+                value={associatedFirmId}
+                onChange={(event) => setAssociatedFirmId(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="field">
+              Correlation ID
+              <input
+                value={correlationId}
+                onChange={(event) => setCorrelationId(event.target.value)}
+                placeholder="Optional header"
+              />
+            </label>
+            <label className="field">
+              Order by
+              <input
+                value={orderBy}
+                onChange={(event) => setOrderBy(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="field">
+              Sort
+              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)}>
+                <option value="">Default</option>
+                <option value="asc">asc</option>
+                <option value="desc">desc</option>
+              </select>
+            </label>
+            <label className="field">
+              Offset
+              <input
+                type="number"
+                min="0"
+                value={offset}
+                onChange={(event) => setOffset(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="field">
+              Limit
+              <input
+                type="number"
+                min="1"
+                value={limit}
+                onChange={(event) => setLimit(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="field">
+              &nbsp;
+              <button className="btn" type="button" disabled={!activeEndpoint || !keyReady || loading} onClick={() => void runReconciliation()}>
+                {loading ? "Calling source…" : "Run reconciliation"}
+              </button>
+            </label>
+          </div>
+          {result ? (
+            <>
+              <p className="help">
+                {`Source returned ${result.totalEvents} event${result.totalEvents === 1 ? "" : "s"} (HTTP ${result.sourceStatus}). ${result.storedCount} already stored, ${result.missingCount} missing.`}
+              </p>
+              {result.events.length === 0 ? (
+                <div className="empty">The source returned no events for this window.</div>
+              ) : (
+                <div className="reconcile-results">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Event ID</th>
+                        <th>Event</th>
+                        <th>Policy</th>
+                        <th>Application</th>
+                        <th>Origin</th>
+                        <th>Status</th>
+                        <th>In portal</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.events.map((event, index) => (
+                        <tr key={event.eventId || index} className={selected?.eventId === event.eventId ? "is-selected" : undefined}>
+                          <td className="mono event-id" title={event.eventId || undefined}>
+                            {event.eventId || "—"}
+                          </td>
+                          <td className="event-cell">
+                            {event.eventType || event.displayName || catalogName(catalog, event.eventType) ? (
+                              <>
+                                <div className="mono">{event.eventType || "unknown"}</div>
+                                <div className="help">
+                                  {event.displayName || catalogName(catalog, event.eventType) || "Unknown/Future Event"}
+                                </div>
+                              </>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td>{event.policyNumber || "—"}</td>
+                          <td>{event.id || "—"}</td>
+                          <td>{event.applicationOrigin?.platform || event.applicationOrigin?.id || "—"}</td>
+                          <td>{event.status || "—"}</td>
+                          <td>
+                            <span className={`badge ${event.stored ? "success" : "warn"}`}>
+                              {event.stored ? "Stored" : "Missing"}
+                            </span>
+                          </td>
+                          <td className="actions-cell">
+                            <button
+                              className="btn link"
+                              type="button"
+                              disabled={!keyReady || !event.eventId || loadingEventId === event.eventId}
+                              onClick={() => void loadPayload(event)}
+                            >
+                              {loadingEventId === event.eventId ? "Loading…" : "Load payload"}
+                            </button>
+                            {event.portalEventId ? (
+                              <Link to={`/events/${event.portalEventId}`} className="btn link" style={{ marginLeft: 12 }}>
+                                View stored
+                              </Link>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          ) : null}
         </div>
         <div className="reconcile-pane reconcile-detail">
           <h4>Get by event id</h4>
           <p className="help">{"Calls GET /v2/application-notifications/{eventId} on the source."}</p>
-      <div className="reconcile-filters">
-        <label className="field">
-          Event ID
-          <input
-            value={lookupEventId}
-            onChange={(event) => setLookupEventId(event.target.value)}
-            placeholder="Source event id"
-          />
-        </label>
-        <label className="field">
-          &nbsp;
-          <button
-            className="btn"
-            type="button"
-            disabled={!activeEndpoint || !keyReady || !lookupEventId.trim() || loadingEventId === lookupEventId.trim()}
-            onClick={() => void loadByEventId()}
-          >
-            {loadingEventId && loadingEventId === lookupEventId.trim() ? "Loading…" : "Get by event id"}
-          </button>
-        </label>
-      </div>
+          <div className="reconcile-filters">
+            <label className="field">
+              Event ID
+              <input
+                value={lookupEventId}
+                onChange={(event) => setLookupEventId(event.target.value)}
+                placeholder="Source event id"
+              />
+            </label>
+            <label className="field">
+              &nbsp;
+              <button
+                className="btn"
+                type="button"
+                disabled={!activeEndpoint || !keyReady || !lookupEventId.trim() || loadingEventId === lookupEventId.trim()}
+                onClick={() => void loadByEventId()}
+              >
+                {loadingEventId && loadingEventId === lookupEventId.trim() ? "Loading…" : "Get by event id"}
+              </button>
+            </label>
+          </div>
           {detailError ? <div className="flash error">{detailError}</div> : null}
           {selected ? (
             <JsonViewer

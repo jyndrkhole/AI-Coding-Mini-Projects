@@ -420,9 +420,22 @@ th {
 
 .reconcile-split {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+  grid-template-areas: "list detail";
   gap: 16px;
   align-items: start;
+}
+
+.reconcile-list {
+  grid-area: list;
+}
+
+.reconcile-detail {
+  grid-area: detail;
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 24px);
+  overflow: auto;
 }
 
 .reconcile-pane {
@@ -443,13 +456,51 @@ th {
   margin-bottom: 12px;
 }
 
-.reconcile-detail {
-  position: sticky;
-  top: 12px;
+.reconcile-results {
+  overflow: auto;
+  max-height: min(58vh, 640px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  scrollbar-gutter: stable;
 }
 
-tr.is-selected td {
-  background: color-mix(in srgb, var(--teal) 12%, transparent);
+.reconcile-results table {
+  width: max-content;
+  min-width: 100%;
+}
+
+.reconcile-results th,
+.reconcile-results td {
+  background: var(--card);
+  vertical-align: top;
+}
+
+.reconcile-results th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  box-shadow: 0 1px 0 var(--line);
+}
+
+.reconcile-results td.event-id {
+  max-width: 280px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.reconcile-results td.event-cell {
+  white-space: normal;
+  min-width: 240px;
+  max-width: 320px;
+}
+
+.reconcile-results td.actions-cell {
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.reconcile-results tr.is-selected td {
+  background: color-mix(in srgb, var(--teal) 12%, var(--card));
 }
 
 label.field {
@@ -637,8 +688,15 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .reconcile-split {
+    grid-template-areas:
+      "list"
+      "detail";
+  }
+
   .reconcile-detail {
     position: static;
+    max-height: none;
   }
 
   .topbar {

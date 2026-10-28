@@ -69,6 +69,8 @@ export interface PortalConfig {
 
 export interface ReconciliationEvent {
   eventId: string;
+  eventType?: string | null;
+  displayName?: string | null;
   policyNumber?: string;
   id?: string;
   status?: string;

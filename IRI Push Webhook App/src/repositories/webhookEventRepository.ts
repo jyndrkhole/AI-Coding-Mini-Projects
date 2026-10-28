@@ -145,24 +145,34 @@ export function listWebhookEvents(
   };
 }
 
-export function findPortalEventsBySourceEventIds(sourceEventIds: string[]): Map<string, string> {
+export interface MatchedPortalEvent {
+  id: string;
+  eventType: string | null;
+}
+
+export function findPortalEventsBySourceEventIds(sourceEventIds: string[]): Map<string, MatchedPortalEvent> {
   const ids = [...new Set(sourceEventIds.map((id) => id.trim()).filter(Boolean))];
-  const found = new Map<string, string>();
+  const found = new Map<string, MatchedPortalEvent>();
   if (ids.length === 0) {
     return found;
   }
   const placeholders = ids.map(() => "?").join(", ");
   const rows = getDb()
     .prepare(
-      `SELECT id, json_extract(payload_json, '$.eventId') AS source_event_id
+      `SELECT id,
+              COALESCE(NULLIF(event_type, ''), json_extract(payload_json, '$.eventType')) AS event_type,
+              json_extract(payload_json, '$.eventId') AS source_event_id
        FROM webhook_events
        WHERE json_extract(payload_json, '$.eventId') IN (${placeholders})
        ORDER BY received_at DESC`
     )
-    .all(...ids) as { id: string; source_event_id: string | null }[];
+    .all(...ids) as { id: string; event_type: string | null; source_event_id: string | null }[];
   for (const row of rows) {
     if (row.source_event_id && !found.has(row.source_event_id)) {
-      found.set(row.source_event_id, row.id);
+      found.set(row.source_event_id, {
+        id: row.id,
+        eventType: typeof row.event_type === "string" ? row.event_type : null
+      });
     }
   }
   return found;

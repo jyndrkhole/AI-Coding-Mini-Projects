@@ -244,7 +244,13 @@ describe("source reconciliation", () => {
           totalEvents: 2,
           events: [
             { eventId: "evt-stored", policyNumber: "P1", id: "APP-1", status: "received" },
-            { eventId: "evt-missing", policyNumber: "P2", id: "APP-2", status: "inProgress" }
+            {
+              eventId: "evt-missing",
+              policyNumber: "P2",
+              id: "APP-2",
+              status: "inProgress",
+              eventType: "applicationStatus.v1.applicationCancelled"
+            }
           ]
         })
       );
@@ -298,7 +304,68 @@ describe("source reconciliation", () => {
     expect(response.body.missingCount).toBe(1);
     expect(response.body.events[0].stored).toBe(true);
     expect(response.body.events[0].portalEventId).toEqual(expect.any(String));
-    expect(response.body.events[1]).toMatchObject({ eventId: "evt-missing", stored: false, portalEventId: null });
+    expect(response.body.events[0]).toMatchObject({
+      eventType: "applicationStatus.v1.applicationReceived",
+      displayName: "Initial Application Received Notification"
+    });
+    expect(response.body.events[1]).toMatchObject({
+      eventId: "evt-missing",
+      stored: false,
+      portalEventId: null,
+      eventType: "applicationStatus.v1.applicationCancelled",
+      displayName: "Application Cancelled Notification"
+    });
+  });
+
+  it("loads event names from get-by-event-id when the reconciliation list has no eventType", async () => {
+    const seen: string[] = [];
+    const base = await listen((req, res) => {
+      const url = new URL(req.url ?? "/", "http://127.0.0.1");
+      seen.push(`${req.method} ${url.pathname}`);
+      res.setHeader("Content-Type", "application/json");
+      if (url.pathname === "/getAuthToken") {
+        res.end(JSON.stringify({ token: "source-token-value" }));
+        return;
+      }
+      if (url.pathname === "/v2/application-notifications/reconciliation") {
+        res.end(
+          JSON.stringify({
+            totalEvents: 1,
+            events: [{ eventId: "evt-named", policyNumber: "P3", id: "APP-3", status: "inProgress" }]
+          })
+        );
+        return;
+      }
+      if (url.pathname === "/v2/application-notifications/evt-named") {
+        res.end(
+          JSON.stringify({
+            eventId: "evt-named",
+            eventType: "applicationStatus.v1.fundingReceived",
+            status: "inProgress"
+          })
+        );
+        return;
+      }
+      res.statusCode = 404;
+      res.end(JSON.stringify({ message: "NotFound" }));
+    });
+    process.env.SOURCE_API_BASE_URL = base;
+    process.env.SOURCE_API_KEY = "source-key";
+    const app = createTestApp();
+    const response = await request(app)
+      .get("/api/reconciliation")
+      .query({ startTime: "2026-10-01T00:00:00.000Z", endTime: "2026-10-02T00:00:00.000Z" })
+      .expect(200);
+    expect(seen).toEqual([
+      "POST /getAuthToken",
+      "GET /v2/application-notifications/reconciliation",
+      "GET /v2/application-notifications/evt-named"
+    ]);
+    expect(response.body.events[0]).toMatchObject({
+      eventId: "evt-named",
+      eventType: "applicationStatus.v1.fundingReceived",
+      displayName: "Funding Received Notification"
+    });
   });
 
   it("calls the source event API with the auth token and keeps a source 401 from logging the portal out", async () => {
