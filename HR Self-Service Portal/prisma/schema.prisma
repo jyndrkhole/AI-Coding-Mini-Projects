@@ -1,0 +1,233 @@
+// PeopleHub stores entitlements, adjustments, and leave requests.
+// Available balance is calculated by the leave service. It is not a column.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  EMPLOYEE
+  ADMINISTRATOR
+  // Reserved for the later approval workflow. No screen grants this role yet.
+  MANAGER
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum DayPortion {
+  FULL
+  AM
+  PM
+}
+
+model Organization {
+  id                              String   @id @default(cuid())
+  companyName                     String
+  appName                         String   @default("PeopleHub")
+  logoUrl                         String?
+  timezone                        String   @default("Asia/Kolkata")
+  weekendDays                     Int[]    @default([0, 6])
+  leaveYearStartMonth             Int      @default(1)
+  leaveYearStartDay               Int      @default(1)
+  employeeCanCancelPending        Boolean  @default(true)
+  employeeCanCancelApproved       Boolean  @default(true)
+  cancelApprovedBeforeStartOnly   Boolean  @default(true)
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee     Employee?
+  sessions     Session[]
+  auditLogs    AuditLog[]                 @relation("AuditActor")
+  reviews      LeaveRequest[]             @relation("ReviewedBy")
+  cancellations LeaveRequest[]            @relation("CancelledBy")
+  adjustments  LeaveBalanceAdjustment[]
+  loginAttempts LoginAttempt[]
+}
+
+model Employee {
+  id               String           @id @default(cuid())
+  userId           String           @unique
+  user             User             @relation(fields: [userId], references: [id])
+  employeeCode     String           @unique
+  fullName         String
+  department       String
+  designation      String
+  joiningDate      DateTime         @db.Date
+  managerId        String?
+  manager          Employee?        @relation("ReportingLine", fields: [managerId], references: [id])
+  reports          Employee[]       @relation("ReportingLine")
+  employmentStatus EmploymentStatus @default(ACTIVE)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  entitlements LeaveEntitlement[]
+  adjustments  LeaveBalanceAdjustment[]
+  requests     LeaveRequest[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model LoginAttempt {
+  id         String   @id @default(cuid())
+  email      String
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  successful Boolean
+  createdAt  DateTime @default(now())
+
+  @@index([email, createdAt])
+}
+
+model LeaveType {
+  id                      String   @id @default(cuid())
+  name                    String   @unique
+  description             String   @default("")
+  isPaid                  Boolean  @default(true)
+  tracksBalance           Boolean  @default(true)
+  defaultAnnualEntitlement Decimal @default(0) @db.Decimal(6, 1)
+  allowsHalfDay           Boolean  @default(false)
+  allowsNegativeBalance   Boolean  @default(false)
+  carryForwardEligible    Boolean  @default(false)
+  maxCarryForwardDays     Decimal? @db.Decimal(6, 1)
+  requiresReason          Boolean  @default(false)
+  isActive                Boolean  @default(true)
+  sortOrder               Int      @default(0)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  entitlements LeaveEntitlement[]
+  adjustments  LeaveBalanceAdjustment[]
+  requests     LeaveRequest[]
+}
+
+model LeaveEntitlement {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  leaveTypeId  String
+  leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id])
+  yearStart    DateTime @db.Date
+  entitledDays Decimal  @db.Decimal(6, 1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([employeeId, leaveTypeId, yearStart])
+}
+
+model LeaveBalanceAdjustment {
+  id              String    @id @default(cuid())
+  employeeId      String
+  employee        Employee  @relation(fields: [employeeId], references: [id])
+  leaveTypeId     String
+  leaveType       LeaveType @relation(fields: [leaveTypeId], references: [id])
+  yearStart       DateTime  @db.Date
+  adjustmentDays  Decimal   @db.Decimal(6, 1)
+  reason          String
+  adjustedByUserId String
+  adjustedBy      User      @relation(fields: [adjustedByUserId], references: [id])
+  createdAt       DateTime  @default(now())
+
+  @@index([employeeId, leaveTypeId, yearStart])
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  name        String
+  holidayDate DateTime @unique @db.Date
+  description String   @default("")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model LeaveRequest {
+  id               String             @id @default(cuid())
+  employeeId       String
+  employee         Employee           @relation(fields: [employeeId], references: [id])
+  leaveTypeId      String
+  leaveType        LeaveType          @relation(fields: [leaveTypeId], references: [id])
+  yearStart        DateTime           @db.Date
+  startDate        DateTime           @db.Date
+  endDate          DateTime           @db.Date
+  startPortion     DayPortion         @default(FULL)
+  endPortion       DayPortion         @default(FULL)
+  requestedDays    Decimal            @db.Decimal(6, 1)
+  reason           String             @default("")
+  status           LeaveRequestStatus
+  idempotencyKey   String             @unique
+  submittedAt      DateTime           @default(now())
+  reviewedByUserId String?
+  reviewedBy       User?              @relation("ReviewedBy", fields: [reviewedByUserId], references: [id])
+  reviewedAt       DateTime?
+  reviewComment    String?
+  cancelledByUserId String?
+  cancelledBy      User?              @relation("CancelledBy", fields: [cancelledByUserId], references: [id])
+  cancelledAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  days LeaveRequestDay[]
+
+  @@index([employeeId, status])
+  @@index([status, submittedAt])
+  @@index([startDate, endDate])
+}
+
+model LeaveRequestDay {
+  id             String       @id @default(cuid())
+  leaveRequestId String
+  leaveRequest   LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  leaveDate      DateTime     @db.Date
+  portion        Decimal      @db.Decimal(2, 1)
+
+  @@unique([leaveRequestId, leaveDate])
+  @@index([leaveDate])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id])
+  action      String
+  entityType  String
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}

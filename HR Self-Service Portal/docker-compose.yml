@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: peoplehub
+      POSTGRES_PASSWORD: peoplehub
+      POSTGRES_DB: peoplehub
+    ports:
+      - "5432:5432"
+    volumes:
+      - peoplehub-postgres:/var/lib/postgresql/data
+
+volumes:
+  peoplehub-postgres:
