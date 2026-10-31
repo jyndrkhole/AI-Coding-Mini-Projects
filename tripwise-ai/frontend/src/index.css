@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background: #f4efe6;
+  color: #142033;
+}
+
+.prose-trip p { margin: 0.4rem 0; }
+.prose-trip ul { margin: 0.4rem 0 0.4rem 1.1rem; list-style: disc; }
+.prose-trip strong { font-weight: 620; }

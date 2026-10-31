@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="TripWise">
+  <rect width="32" height="32" rx="8" fill="#0c3b38"/>
+  <circle cx="16" cy="16" r="9.2" fill="none" stroke="#f4efe6" stroke-width="1.35"/>
+  <path d="M16 6.6 18.55 16 16 14.35 13.45 16Z" fill="#e4c57a"/>
+  <path d="M16 25.4 13.45 16 16 17.65 18.55 16Z" fill="#f4efe6"/>
+  <circle cx="16" cy="16" r="1.55" fill="#0f6e67" stroke="#f4efe6" stroke-width="0.7"/>
+</svg>
