@@ -58,11 +58,58 @@ def retrieve(query: str, k: int | None = None, where: dict | None = None) -> lis
     )
 
 
-def retrieve_context(query: str, k: int | None = None) -> str:
-    hits = retrieve(query, k=k)
+def build_where(
+    destination: str | None = None,
+    travel_type: str | None = None,
+    season: str | None = None,
+) -> dict | None:
+    clauses = []
+    if destination:
+        clauses.append({"destination": destination})
+    if travel_type:
+        clauses.append({"travel_type": travel_type})
+    if season:
+        clauses.append({"season": season})
+    if not clauses:
+        return None
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$and": clauses}
+
+
+def format_hits(hits: list[dict]) -> str:
+    lines = []
+    for hit in hits:
+        meta = hit.get("metadata") or {}
+        label = ", ".join(
+            f"{key}={meta[key]}"
+            for key in ("destination", "travel_type", "season", "topic")
+            if meta.get(key)
+        )
+        prefix = f"[{label}] " if label else ""
+        lines.append(f"- {prefix}{hit['text']}")
+    return "\n".join(lines)
+
+
+def retrieve_context(
+    query: str,
+    k: int | None = None,
+    destination: str | None = None,
+    travel_type: str | None = None,
+    season: str | None = None,
+) -> str:
+    where = build_where(destination, travel_type, season)
+    hits = retrieve(query, k=k, where=where)
+    if not hits and where:
+        hits = retrieve(query, k=k, where=None)
+        if hits:
+            return (
+                "No notebook passage matched the destination, travel-type, or season filter. "
+                "Closest unfiltered notes:\n" + format_hits(hits)
+            )
     if not hits:
         count = get_collection().count()
         if count == 0:
             return "No travel notes have been ingested into the notebook yet."
         return "No notebook passage scored above the similarity threshold. Say that the notebook does not cover this."
-    return "\n".join(f"- {hit['text']}" for hit in hits)
+    return format_hits(hits)

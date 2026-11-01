@@ -33,6 +33,34 @@ export function Itinerary() {
     });
   }
 
+  async function saveDay(day: any) {
+    const updated = await api<any>(`/api/itineraries/${day.id}`, {
+      method: "PUT",
+      body: JSON.stringify({ title: day.title, activities: day.activities }),
+    });
+    setTrip({ ...trip, days: trip.days.map((item: any) => (item.id === day.id ? updated : item)) });
+  }
+
+  function exportPlan() {
+    if (!trip?.days) return;
+    const lines = [`# ${trip.title || "TripWise itinerary"}`, ""];
+    for (const day of trip.days) {
+      lines.push(`## ${day.title}`);
+      for (const slot of ["morning", "afternoon", "evening"]) {
+        const block = day.activities?.[slot];
+        lines.push(`- ${slot}: ${block?.title || ""} — ${block?.detail || ""}`);
+      }
+      lines.push("");
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "tripwise-itinerary.md";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   if (!user) return <p>Sign in to save an itinerary. <Link className="text-teal" to="/login">Sign in</Link></p>;
 
   return (
@@ -44,6 +72,7 @@ export function Itinerary() {
         <input type="number" className="w-24 rounded-2xl border border-line bg-card px-3 py-2" value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Days" />
         <input type="number" className="w-24 rounded-2xl border border-line bg-card px-3 py-2" value={people} onChange={(e) => setPeople(Number(e.target.value))} aria-label="People" />
         <button className="rounded-2xl bg-teal px-4 text-white">Generate</button>
+        {trip?.days && <button type="button" className="rounded-2xl border border-line px-4" onClick={exportPlan}>Export</button>}
       </form>
       {error && <p className="mt-4 text-red-700">{error}</p>}
       <div className="mt-6 space-y-3">
@@ -51,12 +80,28 @@ export function Itinerary() {
           <article key={day.id} className="rounded-3xl bg-card p-4 shadow-card">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-display text-2xl">{day.title}</h2>
-              <button className="text-sm text-teal" onClick={() => regenerate(day.id)}>Regenerate day</button>
             </div>
             {["morning", "afternoon", "evening"].map((slot) => (
-              <p key={slot} className="mt-2 text-sm"><strong className="capitalize">{slot}.</strong> {day.activities[slot]?.title} — {day.activities[slot]?.detail}</p>
+              <label key={slot} className="mt-2 block text-sm">
+                <span className="capitalize">{slot}</span>
+                <input
+                  className="mt-1 w-full rounded-2xl border border-line px-3 py-2"
+                  value={day.activities[slot]?.title || ""}
+                  onChange={(event) => {
+                    const activities = {
+                      ...day.activities,
+                      [slot]: { ...day.activities[slot], title: event.target.value },
+                    };
+                    setTrip({ ...trip, days: trip.days.map((item: any) => item.id === day.id ? { ...item, activities } : item) });
+                  }}
+                />
+              </label>
             ))}
             <p className="mt-2 text-sm text-ink/60">Sample activity cost {inr(day.estimated_cost)}. {day.activities.tip}</p>
+            <div className="mt-3 flex gap-3 text-sm">
+              <button className="text-teal" onClick={() => saveDay(day)}>Save day</button>
+              <button className="text-teal" onClick={() => regenerate(day.id)}>Regenerate day</button>
+            </div>
           </article>
         ))}
       </div>

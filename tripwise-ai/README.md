@@ -6,6 +6,8 @@ A travel advisor that keeps three jobs apart:
 - **ChromaDB** holds the travel notebook. It is not the source of prices.
 - **The MCP server** is the only process the advisor uses for `db_lookup`, `list_destinations`, and `compute_trip_cost`.
 - **The host** runs Groq (or OpenAI), retrieval, and the two budget chains.
+- **Long-term memory** is per traveller: facts and planning rules in SQLite, past trips in a separate Chroma collection. The notebook stays world knowledge.
+- **The Local Guide** is a second process. The advisor asks it over A2A for things to do, local food, and a weather note. It does not quote prices.
 
 The multi-chain path is: MCP cost tool, then an explanation chain, then a GO / NOT YET chain. The explanation is told not to recompute the tool's numbers.
 
@@ -21,6 +23,14 @@ cp .env.example .env
 python -m app.seed
 python -m app.ingest
 uvicorn app.main:app --reload --port 8000
+```
+
+In a second terminal, the Local Guide answers “what should we do” questions. The advisor still runs if this process is stopped.
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m app.a2a.guide
 ```
 
 ```bash
@@ -42,6 +52,9 @@ Local demo accounts:
 - `We are 4 friends with ₹12,000 each. Can we do Goa for 3 nights?`
 - `/plan Hampi 5 2 6000`
 - `Is Manali a good idea in July?`
+- `What should we do in Hampi in December?`
+
+After a chat, **End chat and save to memory** files lasting facts, past trips, and planning rules for the signed-in traveller. **Forget everything** deletes only that traveller’s memory. Passwords, card numbers, and phone numbers are not stored.
 
 The budget page shows the tool result and both chains. Sample prices are demonstration estimates, not live fares.
 

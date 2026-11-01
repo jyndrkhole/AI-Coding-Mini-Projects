@@ -5,7 +5,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.ai.agent import run_agent
-from app.ai.llm import LLMNotConfigured
+from app.ai.llm import LLMNotConfigured, get_chat_model
+from app.ai.memory import UserMemory, save_session
+from app.core.config import get_settings
 from app.api.deps import current_user
 from app.core.rate_limit import enforce_rate_limit
 from app.database.connection import get_db
@@ -51,7 +53,7 @@ async def chat(body: ChatIn, request: Request, user: User = Depends(current_user
         async with open_session() as mcp_session:
             result = await mcp_session.call_tool("list_destinations", {})
         places = parse_tool_payload(result)
-        lines = ["Destinations in the catalogue (from the MCP tool list_destinations):"]
+        lines = ["Destinations in the catalogue:"]
         if isinstance(places, list):
             for place in places:
                 lines.append(f"- {place['name']} ({place['place_id']}) · {place['trip_type']} · {place['best_months']}")
@@ -61,7 +63,8 @@ async def chat(body: ChatIn, request: Request, user: User = Depends(current_user
         rag_context = ""
     else:
         try:
-            outcome = await run_agent(body.message, history=history, prompt_args=prompt_args)
+            remembered = UserMemory(db, user.id).recall(body.message)
+            outcome = await run_agent(body.message, history=history, prompt_args=prompt_args, memory_text=remembered)
         except LLMNotConfigured as exc:
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail={"code": "llm_unconfigured", "message": str(exc)}) from exc
         except Exception as exc:
@@ -106,6 +109,35 @@ def get_session(session_id: int, user: User = Depends(current_user), db: Session
     payload = serialize_session(session, with_messages=True)
     payload["messages"] = [serialize_message(item) for item in session.messages]
     return {"success": True, "data": payload}
+
+
+@router.get("/memory")
+def read_memory(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return {"success": True, "data": UserMemory(db, user.id).snapshot()}
+
+
+@router.delete("/memory")
+def forget_memory(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    memory = UserMemory(db, user.id)
+    memory.forget_everything()
+    return {"success": True, "data": memory.snapshot()}
+
+
+@router.post("/sessions/{session_id}/memory")
+def save_chat_memory(session_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    session = ChatRepository(db).get_session(session_id, user.id)
+    if session is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail={"code": "not_found", "message": "That conversation was not found."})
+    messages = [{"role": item.role, "content": item.content} for item in session.messages]
+    if not messages:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail={"code": "empty_chat", "message": "There is nothing in this chat to save."})
+    if not get_settings().llm_configured:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "llm_unconfigured", "message": "Set GROQ_API_KEY or OPENAI_API_KEY before saving memory."},
+        )
+    saved = save_session(messages, UserMemory(db, user.id), get_chat_model())
+    return {"success": True, "data": saved}
 
 
 @router.delete("/sessions/{session_id}")

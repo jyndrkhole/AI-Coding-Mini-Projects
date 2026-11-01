@@ -13,7 +13,19 @@ type Destination = {
   budget_max: number;
 };
 
-const types = ["Beach", "Hills", "Heritage", "Adventure", "Nature"];
+const types = [
+  ["Beach", "Beaches"],
+  ["Hills", "Hills"],
+  ["Heritage", "Heritage"],
+  ["Adventure", "Adventure"],
+  ["Nature", "Nature"],
+  ["wildlife", "Wildlife"],
+  ["spiritual", "Spiritual"],
+  ["family", "Family"],
+  ["romantic", "Romantic"],
+  ["weekend", "Weekend"],
+  ["road", "Road trips"],
+];
 
 export function Landing() {
   const navigate = useNavigate();
@@ -83,11 +95,38 @@ export function Landing() {
         </div>
         <h2 className="mt-14 font-display text-3xl">Explore by travel type</h2>
         <div className="mt-4 flex flex-wrap gap-2">
-          {types.map((type) => (
-            <Link key={type} to={`/destinations?type=${type}`} className="rounded-full border border-line bg-card px-4 py-2">
-              {type}
+          {types.map(([key, label]) => (
+            <Link key={key} to={`/destinations?audience=${key}`} className="rounded-full border border-line bg-card px-4 py-2">
+              {label}
             </Link>
           ))}
+        </div>
+        <h2 className="mt-14 font-display text-3xl">Seasonal notes</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {[
+            ["December", "December hills and beaches are in the notebook. Weekend crowds are mentioned only where a note exists."],
+            ["July", "July is stored as a difficult month for Manali and other hill roads."],
+            ["October", "October opens the drier season for several beaches and heritage towns in the catalogue."],
+          ].map(([month, copy]) => (
+            <Link key={month} to={`/destinations?month=${month.toLowerCase()}`} className="rounded-3xl bg-card p-5 shadow-card">
+              <h3 className="font-display text-2xl">{month}</h3>
+              <p className="mt-2 text-sm text-ink/75">{copy}</p>
+            </Link>
+          ))}
+        </div>
+        <h2 className="mt-14 font-display text-3xl">Featured experiences</h2>
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {["Beach", "Hills", "Heritage"].map((type) => {
+            const place = places.find((item) => item.destination_type === type);
+            if (!place) return null;
+            return (
+              <Link key={type} to={`/destinations/${place.slug}`} className="rounded-3xl bg-card p-5 shadow-card">
+                <p className="text-xs uppercase text-teal">{type}</p>
+                <h3 className="font-display text-2xl">{place.name}</h3>
+                <p className="mt-2 text-sm text-ink/75">{place.state}. Best season on record: {place.best_season}.</p>
+              </Link>
+            );
+          })}
         </div>
         <h2 className="mt-14 font-display text-3xl">How TripWise AI works</h2>
         <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -103,10 +142,10 @@ export function Landing() {
           ))}
         </div>
         <footer className="mt-14 flex flex-wrap gap-4 border-t border-line py-6 text-sm text-ink/60">
-          <span>About</span>
-          <span>Contact</span>
-          <span>Privacy</span>
-          <span>Terms</span>
+          <Link to="/about">About</Link>
+          <Link to="/contact">Contact</Link>
+          <Link to="/privacy">Privacy</Link>
+          <Link to="/terms">Terms</Link>
         </footer>
       </section>
     </div>

@@ -8,6 +8,7 @@ type AuthValue = {
   ready: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateProfile: (name: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -42,7 +43,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }
 
-  return <AuthContext.Provider value={{ user, ready, login, logout }}>{children}</AuthContext.Provider>;
+  async function updateProfile(name: string) {
+    const next = await api<User>("/api/auth/me", { method: "PUT", body: JSON.stringify({ name }) });
+    setUser(next);
+  }
+
+  return <AuthContext.Provider value={{ user, ready, login, logout, updateProfile }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

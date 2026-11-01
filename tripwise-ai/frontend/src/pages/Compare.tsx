@@ -7,13 +7,14 @@ export function Compare() {
   const [nights, setNights] = useState(3);
   const [rows, setRows] = useState<any[]>([]);
   const [missing, setMissing] = useState<any[]>([]);
+  const [recommendation, setRecommendation] = useState("");
   const [error, setError] = useState("");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
     try {
-      const data = await api<{ rows: any[]; missing: any[] }>("/api/budget/compare", {
+      const data = await api<{ rows: any[]; missing: any[]; recommendation?: string }>("/api/budget/compare", {
         method: "POST",
         body: JSON.stringify({
           places: places.split(",").map((item) => item.trim()).filter(Boolean),
@@ -23,6 +24,7 @@ export function Compare() {
       });
       setRows(data.rows);
       setMissing(data.missing);
+      setRecommendation(data.recommendation || "");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Compare failed");
     }
@@ -45,7 +47,7 @@ export function Compare() {
           <table className="w-full text-left text-sm">
             <thead className="text-ink/60">
               <tr>
-                {["Place", "Type", "Season", "Stay", "Travel", "Per person", "Couple", "Family"].map((heading) => <th key={heading} className="px-3 py-3">{heading}</th>)}
+                {["Place", "Type", "Season", "Stay", "Travel", "Per person", "Couple", "Family", "Adventure", "Weather", "Crowds", "Pros", "Cons"].map((heading) => <th key={heading} className="px-3 py-3">{heading}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -59,13 +61,19 @@ export function Compare() {
                   <td className="px-3 py-3">{inr(row.total_per_person)}</td>
                   <td className="px-3 py-3">{row.couple_fit || "—"}</td>
                   <td className="px-3 py-3">{row.family_fit || "—"}</td>
+                  <td className="px-3 py-3">{row.adventure_fit || "—"}</td>
+                  <td className="px-3 py-3">{row.weather_note || "No stored weather note"}</td>
+                  <td className="px-3 py-3">{row.crowdedness || "No stored crowd note"}</td>
+                  <td className="px-3 py-3">{row.pros || "—"}</td>
+                  <td className="px-3 py-3">{row.cons || "—"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      <p className="mt-3 text-xs text-ink/50">Couple and family fit are catalogue labels, not a live score. Costs are demonstration estimates.</p>
+      {recommendation && <p className="mt-4 rounded-2xl bg-card p-4 text-sm shadow-card">{recommendation}</p>}
+      <p className="mt-3 text-xs text-ink/50">Couple, family, and adventure fit are catalogue labels. Costs are demonstration estimates. Activities: {rows.map((row) => `${row.name}: ${(row.activities || []).join(", ") || "none stored"}`).join(" · ")}</p>
     </div>
   );
 }

@@ -21,13 +21,20 @@ def list_destinations(
     destination_type: str | None = None,
     month: str | None = None,
     sort: str = "name",
+    audience: str | None = None,
     db: Session = Depends(get_db),
 ):
     month_number = MONTHS.get(month.strip().lower()) if month else None
     if month and month.strip().isdigit():
         month_number = int(month)
     repo = DestinationRepository(db)
-    rows = repo.list(q=q, destination_type=destination_type, month=month_number, sort=sort)
+    rows = repo.list(
+        q=q,
+        destination_type=destination_type,
+        month=month_number,
+        sort=sort,
+        audience=audience,
+    )
     return {"success": True, "data": [serialize_destination(row, brief=True) for row in rows]}
 
 

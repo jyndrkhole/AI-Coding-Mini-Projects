@@ -81,6 +81,53 @@ async def compare_destinations(places: list[str], people: int, nights: int, budg
                 continue
             record = found["record"]
             tool_result = found.get("tool_result") or {}
-            rows.append({**record, **tool_result})
+            rows.append({**record, **tool_result, **catalogue_extras(record.get("name", ""))})
     rows.sort(key=lambda item: item.get("total_per_person", 0))
-    return {"rows": rows, "missing": missing, "price_label": "demonstration_estimate"}
+    return {
+        "rows": rows,
+        "missing": missing,
+        "recommendation": comparison_note(rows),
+        "price_label": "demonstration_estimate",
+    }
+
+
+def catalogue_extras(name: str) -> dict:
+    """Fit labels, stored tips, and attractions. Crowdedness only when a tip says so."""
+    from app.database.connection import SessionLocal, init_db
+    from app.database.repositories.destinations import DestinationRepository
+
+    init_db()
+    db = SessionLocal()
+    try:
+        repo = DestinationRepository(db)
+        destination = repo.by_name(name) if name else None
+        if destination is None:
+            return {}
+        tips = [tip for tip in repo.tips(destination.id) if tip.destination_id == destination.id]
+        crowd_words = ("crowd", "busy", "peak", "quieter", "midweek")
+        crowdedness = next((tip.content for tip in tips if any(word in tip.content.lower() for word in crowd_words)), None)
+        weather = next((tip.content for tip in tips if tip.category in {"season", "safety"}), None)
+        return {
+            "family_fit": destination.family_fit,
+            "couple_fit": destination.couple_fit,
+            "adventure_fit": destination.adventure_fit,
+            "pros": destination.pros,
+            "cons": destination.cons,
+            "activities": [item.name for item in repo.attractions(destination.id)],
+            "weather_note": weather,
+            "crowdedness": crowdedness,
+        }
+    finally:
+        db.close()
+
+
+def comparison_note(rows: list[dict]) -> str:
+    if not rows:
+        return "No catalogue rows were available to compare."
+    cheapest = min(rows, key=lambda item: item.get("total_per_person") or 0)
+    return (
+        f"{cheapest.get('name')} has the lower demonstration cost per person "
+        f"(₹{cheapest.get('total_per_person')}). "
+        "Family, couple, and adventure labels are catalogue fields. "
+        "Crowdedness appears only when a stored tip mentions crowds."
+    )

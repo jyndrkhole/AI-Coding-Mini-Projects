@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 30
     rate_limit_window_seconds: int = 600
     chroma_collection: str = "trip_knowledge"
+    guide_url: str = "http://127.0.0.1:9999"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -238,3 +238,28 @@ class SavedDestination(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     destination: Mapped[Destination] = relationship()
+
+
+class TravelerFact(Base):
+    """Semantic memory: one lasting fact per traveller and key."""
+
+    __tablename__ = "traveler_facts"
+    __table_args__ = (UniqueConstraint("user_id", "key", name="uq_traveler_fact"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    key: Mapped[str] = mapped_column(String(80), nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+
+
+class TravelerRule(Base):
+    """Procedural memory: how to plan for this traveller."""
+
+    __tablename__ = "traveler_rules"
+    __table_args__ = (UniqueConstraint("user_id", "rule", name="uq_traveler_rule"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    rule: Mapped[str] = mapped_column(Text, nullable=False)
+    added: Mapped[str] = mapped_column(String(20), nullable=False, default="")

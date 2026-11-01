@@ -35,6 +35,7 @@ class DestinationRepository:
         destination_type: str | None = None,
         month: int | None = None,
         sort: str = "name",
+        audience: str | None = None,
     ) -> list[Destination]:
         stmt = select(Destination)
         if q:
@@ -59,6 +60,8 @@ class DestinationRepository:
         rows = list(self.db.scalars(stmt))
         if month:
             rows = [row for row in rows if _month_matches(row.best_months, month)]
+        if audience:
+            rows = [row for row in rows if _matches_audience(row, audience)]
         return rows
 
     def get(self, destination_id: int) -> Destination | None:
@@ -164,6 +167,27 @@ class DestinationRepository:
     def representative_stay(self, destination_id: int) -> Accommodation | None:
         stays = self.stays(destination_id)
         return stays[0] if stays else None
+
+
+def _matches_audience(row: Destination, audience: str) -> bool:
+    key = audience.strip().lower()
+    text = f"{row.name} {row.description} {row.pros}".lower()
+    mode = (row.travel_mode or "").lower()
+    if key in {"beach", "hills", "heritage", "adventure", "nature"}:
+        return row.destination_type.lower() == key
+    if key == "wildlife":
+        return row.code == "DANDELI" or any(word in text for word in ("wildlife", "jungle", "safari"))
+    if key == "spiritual":
+        return row.code == "RISHIKESH" or any(word in text for word in ("spiritual", "temple", "ganga", "yoga"))
+    if key == "family":
+        return row.family_fit == "high"
+    if key == "romantic":
+        return row.couple_fit == "high"
+    if key == "weekend":
+        return row.ideal_duration_days <= 3
+    if key == "road":
+        return any(word in mode for word in ("car", "bus", "road"))
+    return True
 
 
 def _month_matches(best_months: str, month: int) -> bool:
