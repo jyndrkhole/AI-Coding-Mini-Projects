@@ -23,6 +23,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { logoutAction } from "@/server/auth/actions";
+import { SessionIdle } from "@/components/layout/session-idle";
 import { cn } from "@/lib/cn";
 
 type IconName =
@@ -164,6 +165,7 @@ export function AppShell({
 
   return (
     <div className="flex h-dvh overflow-hidden bg-canvas text-ink">
+      <SessionIdle />
       <aside className="hidden border-r border-line md:block">{sidebar(false)}</aside>
       {mobileOpen ? (
         <div className="fixed inset-0 z-40 md:hidden">

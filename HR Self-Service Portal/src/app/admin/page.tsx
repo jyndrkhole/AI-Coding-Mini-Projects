@@ -87,7 +87,10 @@ export default async function AdminDashboardPage() {
                   <tr key={request.id} className="border-b border-line last:border-0">
                     <td className="px-4 py-3">{request.employee.fullName}</td>
                     <td className="px-4 py-3">{request.leaveType.name}</td>
-                    <td className="px-4 py-3">{formatDateRange(isoFromDateOnly(request.startDate), isoFromDateOnly(request.endDate))}</td>
+                    <td className="px-4 py-3">
+                      {formatDateRange(isoFromDateOnly(request.startDate), isoFromDateOnly(request.endDate))}
+                      {request.informUsTeam ? <p className="text-info">Informed to US Team</p> : null}
+                    </td>
                     <td className="px-4 py-3">{formatDays(request.requestedDays.toNumber())}</td>
                     <td className="px-4 py-3"><StatusBadge status={request.status} /></td>
                     <td className="px-4 py-3 text-right">

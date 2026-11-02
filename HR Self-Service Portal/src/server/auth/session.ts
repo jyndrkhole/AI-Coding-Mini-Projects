@@ -3,10 +3,11 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { prisma } from "@/server/db";
 import { SESSION_COOKIE } from "@/server/auth/constants";
+import { SESSION_ABSOLUTE_MS, sessionTimedOut } from "@/server/auth/timeout";
 
 export { SESSION_COOKIE };
 
-const SESSION_HOURS = 12;
+const TOUCH_AFTER_MS = 60 * 1000;
 
 export function createSessionToken() {
   return randomBytes(32).toString("base64url");
@@ -17,7 +18,7 @@ export function hashSessionToken(token: string) {
 }
 
 export function sessionExpiry(from = new Date()) {
-  return new Date(from.getTime() + SESSION_HOURS * 60 * 60 * 1000);
+  return new Date(from.getTime() + SESSION_ABSOLUTE_MS);
 }
 
 export const cookieOptions = (expires: Date) => ({
@@ -28,7 +29,7 @@ export const cookieOptions = (expires: Date) => ({
   expires,
 });
 
-export const getCurrentSession = cache(async () => {
+async function readSession(touch: boolean) {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
@@ -37,8 +38,17 @@ export const getCurrentSession = cache(async () => {
     include: { user: { include: { employee: true } } },
   });
 
-  if (!session || session.expiresAt <= new Date() || !session.user.isActive) {
+  if (!session || !session.user.isActive) {
     return null;
+  }
+
+  if (sessionTimedOut(session)) {
+    await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined);
+    return null;
+  }
+
+  if (touch && Date.now() - session.lastSeenAt.getTime() > TOUCH_AFTER_MS) {
+    await prisma.session.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } }).catch(() => undefined);
   }
 
   const employee = session.user.employee;
@@ -47,7 +57,14 @@ export const getCurrentSession = cache(async () => {
   }
 
   return session;
-});
+}
+
+export const getCurrentSession = cache(() => readSession(true));
+
+/** Checks the idle limit without extending it. Used when a tab has gone quiet. */
+export function peekSession() {
+  return readSession(false);
+}
 
 export async function hasSessionCookie() {
   return Boolean((await cookies()).get(SESSION_COOKIE)?.value);

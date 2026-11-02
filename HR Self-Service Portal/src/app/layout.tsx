@@ -9,7 +9,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: { default: "PeopleHub", template: "%s · PeopleHub" },
-  description: "Leave management for a small organization.",
+  description: "HR self-service. Leave management is available now, and other HR tools can be added later.",
   robots: { index: false, follow: false },
 };
 

@@ -91,12 +91,13 @@ model Employee {
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([userId])
 }
@@ -187,6 +188,7 @@ model LeaveRequest {
   endPortion       DayPortion         @default(FULL)
   requestedDays    Decimal            @db.Decimal(6, 1)
   reason           String             @default("")
+  informUsTeam     Boolean            @default(false)
   status           LeaveRequestStatus
   idempotencyKey   String             @unique
   submittedAt      DateTime           @default(now())

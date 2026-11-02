@@ -101,6 +101,7 @@ export default async function EmployeeDashboardPage() {
                   <div>
                     <p className="font-medium">{request.leaveTypeName}</p>
                     <p className="text-muted">{formatDateRange(request.startIso, request.endIso)}</p>
+                    {request.informUsTeam ? <p className="text-info">Informed to US Team</p> : null}
                   </div>
                   <div className="text-right">
                     <StatusBadge status={request.status} />

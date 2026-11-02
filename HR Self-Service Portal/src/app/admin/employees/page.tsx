@@ -30,7 +30,7 @@ export default async function EmployeesPage({
 
   return (
     <div className="space-y-8">
-      <PageHeader title="Employees" description="Accounts are created here. There is no public registration." />
+      <PageHeader title="Employees" description="Create and manage employee accounts." />
       <form className="flex gap-2">
         <input
           name="q"

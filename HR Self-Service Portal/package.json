@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/balance.test.ts src/lib/dates.test.ts src/lib/leave-days.test.ts src/lib/cancellation.test.ts",
+    "test": "tsx --test src/lib/balance.test.ts src/lib/dates.test.ts src/lib/leave-days.test.ts src/lib/cancellation.test.ts src/server/auth/timeout.test.ts",
     "db:up": "node scripts/postgres.mjs",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

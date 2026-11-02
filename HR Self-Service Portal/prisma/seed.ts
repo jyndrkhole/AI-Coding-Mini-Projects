@@ -19,6 +19,12 @@ async function main() {
     await prisma.organization.create({
       data: { companyName, appName: "PeopleHub", timezone: "Asia/Kolkata" },
     });
+  } else if (organization.companyName !== companyName) {
+    await prisma.organization.update({
+      where: { id: organization.id },
+      data: { companyName },
+    });
+    console.log(`Updated organization name to ${companyName}.`);
   }
 
   const existing = await prisma.user.findUnique({ where: { email } });

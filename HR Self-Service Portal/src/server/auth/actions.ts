@@ -9,6 +9,7 @@ import {
   createSessionToken,
   getCurrentSession,
   hashSessionToken,
+  peekSession,
   sessionExpiry,
 } from "@/server/auth/session";
 import { prisma } from "@/server/db";
@@ -94,6 +95,16 @@ const passwordHash = user?.passwordHash ?? (await paddingPasswordHash());
     rethrowRedirect(error);
     return { error: "PeopleHub cannot reach the database. Check that PostgreSQL is running." };
   }
+}
+
+export async function touchSessionAction() {
+  const session = await getCurrentSession();
+  return Boolean(session);
+}
+
+export async function confirmSessionAction() {
+  const session = await peekSession();
+  return Boolean(session);
 }
 
 export async function logoutAction() {

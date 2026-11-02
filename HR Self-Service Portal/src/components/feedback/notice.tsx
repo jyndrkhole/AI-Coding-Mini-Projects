@@ -1,5 +1,6 @@
 const messages: Record<string, string> = {
   submitted: "Leave request submitted.",
+  updated: "Leave request updated.",
   cancelled: "Leave request cancelled.",
   approved: "Leave request approved.",
   rejected: "Leave request rejected.",
@@ -8,6 +9,7 @@ const messages: Record<string, string> = {
   employee: "Employee account created.",
   status: "Employment status updated.",
   balance: "Leave balance adjustment saved.",
+  "us-team": "US team notice updated.",
 };
 
 export function Notice({ notice, error }: { notice?: string; error?: string }) {

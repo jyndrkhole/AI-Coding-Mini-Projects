@@ -31,6 +31,14 @@ export function todayIso(timeZone: string, now = new Date()): string {
   }).format(now);
 }
 
+export function monthBoundsIso(iso: string): { fromIso: string; toIso: string } {
+  const [year, month] = iso.split("-").map(Number);
+  const fromIso = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const toIso = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { fromIso, toIso };
+}
+
 export function weekday(iso: string): number {
   return dateOnly(iso).getUTCDay();
 }

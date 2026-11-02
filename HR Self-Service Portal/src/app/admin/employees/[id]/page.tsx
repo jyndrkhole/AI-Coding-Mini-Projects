@@ -63,6 +63,7 @@ export default async function EmployeeDetailPage({
             <li key={request.id} className="flex items-center justify-between px-4 py-3 text-sm">
               <span>
                 {request.leaveTypeName} · {formatDateRange(request.startIso, request.endIso)}
+                {request.informUsTeam ? " · Informed to US Team" : ""}
               </span>
               <StatusBadge status={request.status} />
             </li>

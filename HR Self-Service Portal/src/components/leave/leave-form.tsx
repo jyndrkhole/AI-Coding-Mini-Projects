@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { countLeaveDays, type DayPortion } from "@/lib/leave-days";
 import { formatDays } from "@/lib/dates";
-import { submitLeaveAction, type ActionState } from "@/server/actions/portal";
+import { submitLeaveAction, updateLeaveAction, type ActionState } from "@/server/actions/portal";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 
@@ -15,23 +16,36 @@ type LeaveTypeOption = {
   available: number | null;
 };
 
-const initial: ActionState = { error: "" };
+const initialState: ActionState = { error: "" };
+
+export type LeaveDraft = {
+  requestId: string;
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  startPortion: DayPortion;
+  endPortion: DayPortion;
+  reason: string;
+  informUsTeam: boolean;
+};
 
 export function LeaveForm({
   leaveTypes,
   weekendDays,
   holidayIsos,
+  draft,
 }: {
   leaveTypes: LeaveTypeOption[];
   weekendDays: number[];
   holidayIsos: string[];
+  draft?: LeaveDraft;
 }) {
-  const [state, action, pending] = useActionState(submitLeaveAction, initial);
-  const [leaveTypeId, setLeaveTypeId] = useState(leaveTypes[0]?.id ?? "");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [startPortion, setStartPortion] = useState<DayPortion>("FULL");
-  const [endPortion, setEndPortion] = useState<DayPortion>("FULL");
+  const [state, action, pending] = useActionState(draft ? updateLeaveAction : submitLeaveAction, initialState);
+  const [leaveTypeId, setLeaveTypeId] = useState(draft?.leaveTypeId ?? leaveTypes[0]?.id ?? "");
+  const [startDate, setStartDate] = useState(draft?.startDate ?? "");
+  const [endDate, setEndDate] = useState(draft?.endDate ?? "");
+  const [startPortion, setStartPortion] = useState<DayPortion>(draft?.startPortion ?? "FULL");
+  const [endPortion, setEndPortion] = useState<DayPortion>(draft?.endPortion ?? "FULL");
   const idempotencyKey = useMemo(() => crypto.randomUUID(), []);
   const selected = leaveTypes.find((type) => type.id === leaveTypeId);
 
@@ -50,7 +64,7 @@ export function LeaveForm({
 
   return (
     <form action={action} className="max-w-xl space-y-4 rounded-xl border border-line bg-white p-5">
-      <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+      {draft ? <input type="hidden" name="requestId" value={draft.requestId} /> : <input type="hidden" name="idempotencyKey" value={idempotencyKey} />}
       <Field label="Leave type">
         <Select name="leaveTypeId" value={leaveTypeId} onChange={(event) => setLeaveTypeId(event.target.value)}>
           {leaveTypes.map((type) => (
@@ -92,8 +106,23 @@ export function LeaveForm({
         </>
       )}
       <Field label="Reason" hint={selected?.requiresReason ? "Required for this leave type." : "Optional"}>
-        <Textarea name="reason" required={selected?.requiresReason} />
+        <Textarea name="reason" required={selected?.requiresReason} defaultValue={draft?.reason ?? ""} />
       </Field>
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          name="informUsTeam"
+          value="true"
+          defaultChecked={draft?.informUsTeam ?? false}
+          className="mt-0.5 h-4 w-4 accent-info"
+        />
+        <span>
+          <span className="font-medium">Informed to US Team</span>
+          <span className="mt-0.5 block text-xs text-muted">
+            An administrator can change this before the leave is included in the US team sheet.
+          </span>
+        </span>
+      </label>
       <div className="rounded-lg bg-canvas px-3 py-3 text-sm">
         <p>
           Working days requested:{" "}
@@ -106,9 +135,16 @@ export function LeaveForm({
         {preview && !preview.ok ? <p className="mt-1 text-danger">{preview.error}</p> : null}
       </div>
       {state.error ? <p role="alert" className="text-sm text-danger">{state.error}</p> : null}
-      <Button type="submit" disabled={pending}>
-        {pending ? "Submitting…" : "Submit request"}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? (draft ? "Saving…" : "Submitting…") : draft ? "Save changes" : "Submit request"}
+        </Button>
+        {draft ? (
+          <Link href="/leave" className="text-sm font-medium text-muted">
+            Cancel
+          </Link>
+        ) : null}
+      </div>
     </form>
   );
 }

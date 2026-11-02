@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Notice } from "@/components/feedback/notice";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
@@ -31,7 +32,7 @@ export default async function MyLeavesPage({
         action={<ButtonLink href="/leave/new">Apply for Leave</ButtonLink>}
       />
       <Notice notice={params.notice} error={params.error} />
-      {params.notice === "submitted" && params.days ? (
+      {(params.notice === "submitted" || params.notice === "updated") && params.days ? (
         <p className="-mt-2 mb-4 text-sm text-muted">{params.days} working days were saved with this request.</p>
       ) : null}
       {requests.length === 0 ? (
@@ -44,6 +45,7 @@ export default async function MyLeavesPage({
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Dates</th>
                 <th className="px-4 py-3 font-medium">Days</th>
+                <th className="px-4 py-3 font-medium">US team</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium"> </th>
               </tr>
@@ -58,16 +60,24 @@ export default async function MyLeavesPage({
                   </td>
                   <td className="px-4 py-3">{formatDateRange(request.startIso, request.endIso)}</td>
                   <td className="px-4 py-3">{formatDays(request.requestedDays)}</td>
+                  <td className="px-4 py-3">{request.informUsTeam ? "Informed" : "Not informed"}</td>
                   <td className="px-4 py-3"><StatusBadge status={request.status} /></td>
                   <td className="px-4 py-3 text-right">
-                    {request.canCancel ? (
-                      <form action={cancelLeaveAction}>
-                        <input type="hidden" name="requestId" value={request.id} />
-                        <button type="submit" className="text-sm font-medium text-danger">
-                          Cancel
-                        </button>
-                      </form>
-                    ) : null}
+                    <div className="flex justify-end gap-3">
+                      {request.status === "PENDING" ? (
+                        <Link href={`/leave/${request.id}/edit`} className="text-sm font-medium text-brand">
+                          Edit
+                        </Link>
+                      ) : null}
+                      {request.canCancel ? (
+                        <form action={cancelLeaveAction}>
+                          <input type="hidden" name="requestId" value={request.id} />
+                          <button type="submit" className="text-sm font-medium text-danger">
+                            Cancel
+                          </button>
+                        </form>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

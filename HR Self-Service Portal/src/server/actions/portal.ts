@@ -6,7 +6,7 @@ import type { DayPortion } from "@prisma/client";
 import { requireAdmin, requireUser } from "@/server/auth/guard";
 import { adjustBalance, createHoliday, createLeaveType } from "@/server/services/catalog";
 import { createEmployee, setEmploymentStatus } from "@/server/services/employees";
-import { cancelLeaveRequest, reviewLeaveRequest, submitLeaveRequest } from "@/server/services/leave";
+import { cancelLeaveRequest, reviewLeaveRequest, setInformUsTeam, submitLeaveRequest, updatePendingLeaveRequest } from "@/server/services/leave";
 
 export type ActionState = { error: string };
 
@@ -43,14 +43,48 @@ export async function submitLeaveAction(_state: ActionState, formData: FormData)
     startPortion: startPortion as DayPortion,
     endPortion: endPortion as DayPortion,
     reason: String(formData.get("reason") ?? ""),
+    informUsTeam: formData.get("informUsTeam") === "true",
     idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
   });
   if (!result.ok) return { error: result.error };
 
   revalidatePath("/dashboard");
   revalidatePath("/leave");
+  revalidatePath("/calendar");
   revalidatePath("/admin");
+  revalidatePath("/admin/calendar");
   redirect(`/leave?notice=submitted&days=${result.value.requestedDays}`);
+}
+
+export async function updateLeaveAction(_state: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireUser();
+  const startPortion = String(formData.get("startPortion") ?? "FULL");
+  const endPortion = String(formData.get("endPortion") ?? "FULL");
+  if (!portions.has(startPortion) || !portions.has(endPortion)) {
+    return { error: "Choose a valid portion of the day." };
+  }
+
+  const result = await updatePendingLeaveRequest({
+    actorUserId: session.userId,
+    requestId: String(formData.get("requestId") ?? ""),
+    leaveTypeId: String(formData.get("leaveTypeId") ?? ""),
+    startIso: String(formData.get("startDate") ?? ""),
+    endIso: String(formData.get("endDate") ?? ""),
+    startPortion: startPortion as DayPortion,
+    endPortion: endPortion as DayPortion,
+    reason: String(formData.get("reason") ?? ""),
+    informUsTeam: formData.get("informUsTeam") === "true",
+  });
+  if (!result.ok) return { error: result.error };
+
+  revalidatePath("/dashboard");
+  revalidatePath("/leave");
+  revalidatePath("/calendar");
+  revalidatePath("/admin");
+  revalidatePath("/admin/leave");
+  revalidatePath("/admin/calendar");
+  revalidatePath("/admin/reports");
+  redirect(`/leave?notice=updated&days=${result.value.requestedDays}`);
 }
 
 export async function cancelLeaveAction(formData: FormData) {
@@ -78,12 +112,32 @@ export async function reviewLeaveAction(_state: ActionState, formData: FormData)
     requestId: String(formData.get("requestId") ?? ""),
     decision,
     comment: String(formData.get("comment") ?? ""),
+    informUsTeam: formData.get("informUsTeam") === "true",
   });
   if (!result.ok) return { error: result.error };
   revalidatePath("/admin");
+  revalidatePath("/admin/calendar");
+  revalidatePath("/admin/reports");
   revalidatePath("/dashboard");
   revalidatePath("/leave");
+  revalidatePath("/calendar");
   redirect(decision === "APPROVED" ? "/admin/leave?notice=approved" : "/admin/leave?notice=rejected");
+}
+
+export async function setInformUsTeamAction(_state: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireAdmin();
+  const result = await setInformUsTeam({
+    actorUserId: session.userId,
+    requestId: String(formData.get("requestId") ?? ""),
+    informUsTeam: formData.get("informUsTeam") === "true",
+  });
+  if (!result.ok) return { error: result.error };
+  revalidatePath("/admin/leave");
+  revalidatePath("/admin/calendar");
+  revalidatePath("/admin/reports");
+  revalidatePath("/calendar");
+  revalidatePath("/leave");
+  redirect("/admin/leave?notice=us-team");
 }
 
 export async function createLeaveTypeAction(_state: ActionState, formData: FormData): Promise<ActionState> {

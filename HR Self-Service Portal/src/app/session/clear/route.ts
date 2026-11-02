@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { SESSION_COOKIE } from "@/server/auth/constants";
 import { hashSessionToken } from "@/server/auth/session";
+import { sessionTimedOut } from "@/server/auth/timeout";
 import { prisma } from "@/server/db";
 
 export async function GET(request: Request) {
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
       });
       const usable =
         session &&
-        session.expiresAt > new Date() &&
+        !sessionTimedOut(session) &&
         session.user.isActive &&
         session.user.employee?.employmentStatus !== "INACTIVE";
       if (usable) {

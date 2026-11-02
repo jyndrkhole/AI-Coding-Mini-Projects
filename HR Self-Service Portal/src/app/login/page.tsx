@@ -27,20 +27,13 @@ export default async function LoginPage({
 
   return (
     <main className="grid min-h-full lg:grid-cols-[minmax(0,0.9fr)_minmax(420px,1fr)]">
-      <section className="hidden flex-col justify-between bg-brand px-12 py-12 text-white lg:flex">
-        <div>
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/15 text-base font-semibold">P</div>
-          <p className="mt-10 text-sm text-white/80">{companyName}</p>
-          <h1 className="mt-2 max-w-sm text-4xl font-semibold tracking-tight">Leave, without the chase.</h1>
-          <p className="mt-4 max-w-sm text-sm leading-6 text-white/80">
-            PeopleHub keeps balances, requests, and the calendar in one place for a small team.
-          </p>
-        </div>
-        <ul className="space-y-2 text-sm text-white/85">
-          <li>See what leave you have left</li>
-          <li>Submit a request in a few fields</li>
-          <li>Administrators review from one queue</li>
-        </ul>
+      <section className="hidden flex-col justify-center bg-brand px-12 py-12 text-white lg:flex">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/15 text-base font-semibold">P</div>
+        <h1 className="mt-6 text-3xl font-semibold tracking-tight">PeopleHub</h1>
+        <p className="mt-2 text-sm text-white/80">{companyName}</p>
+        <p className="mt-6 max-w-sm text-sm leading-6 text-white/80">
+          HR self-service for your organization. Leave management is available now, and other HR tools can be added later.
+        </p>
       </section>
       <section className="flex items-center justify-center px-4 py-16">
         <div className="w-full max-w-md">
@@ -53,7 +46,6 @@ export default async function LoginPage({
           <div className="mt-6 rounded-xl border border-line bg-white p-6">
             <LoginForm next={next} />
           </div>
-          <p className="mt-4 text-xs text-muted">There is no public registration. Ask an administrator for an account.</p>
         </div>
       </section>
     </main>
